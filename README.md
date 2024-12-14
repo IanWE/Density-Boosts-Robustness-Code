@@ -24,10 +24,17 @@ python process_data_bundle.py # dataset for training SCBNN
 
 
 
-## Description of Files
-`core/` is the directory of main codes. 
-`materials/` contains all saved files and results. 
+## Description of Core Files
+`core/` is the directory of main codes.  
+`core/model_utils.py`: This module is for model usages, e.g. loading, training, saving, evaluating models, explanation (SHAP).  
+`core/data_utils.py`: This module is for processing dataset, e.g. loading/saving dataset, loading/saving/processing features.   
+`core/constants.py`: This module is used to set some constant values, like configuration.  
+`core/feature_selectors.py`: This module is used to implement backdoor attacks.  
+`core/models.py`: This module contains code for training/loading specific models (for easy usages).  
+`core/nn.py;mmsnn.py;ltnn.py;malconv.py`: Definition for different models.  
+`core/utils.py`: This module is for different tools/algorithms/implementations.
+`materials/` contains all saved files and results.  
 `datasets/` is the directory of datasets. 
-`modified/` contains the modified code for using original PAD and MAB; you can put these code files to the original PAD/MAB datasets for replicate the experiments.
+`modified/` contains the modified code for using original PAD and MAB; you can put these code files to the original PAD/MAB datasets for replicate the experiments. 
 
       
