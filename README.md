@@ -22,7 +22,6 @@ python process_data_bundle.py # dataset for training SCBNN
 6. Before start evaluating evasion attacks, run `python app.py` to wrap all models into apis. Then refer to `gamma_attack.py` for evaluating GAMMA Evasion on different models and refer to [MAB-malware](https://github.com/weisong-ucr/MAB-malware) to evaluating MAB evasion (you can put files in `modified_MAB/`  to MAB docker to implement attacks against our wrapped apis.).
 
 
-## 
 
 ## Description of Core Files
 `app.py`: This file help wrap all models into api for remote access (e.g. from docker).
@@ -36,13 +35,21 @@ python process_data_bundle.py # dataset for training SCBNN
 `core/utils.py`: This module is for different tools/algorithms/implementations. 
 `materials/` contains all saved files and results.  
 `datasets/` is the directory of datasets. 
-`PAD/` is the directory of PAD code, we modified it for easy usage of the API. Please refer to its original version for training models.
-`modified_MAB/` contains the modified code for MAB; you can put these code files to the original MAB datasets.  
-`modified_PAD/` contains the modified code for PAD; you can put these code files to the original PAD datasets.  
+
+`pad/` is the directory of PAD code, we modified it for simplifying usage of the API. Please refer to [its original version](https://github.com/deqangss/pad4amd) for training models.
+`modified_MAB/` contains the modified code for MAB; you can put these code files to the original MAB directory.  
+`modified_PAD/` contains the modified code for PAD; you can put these code files to the original PAD directory.  
+
 
 ### Description of files in Modified_PAD/
-`core/attack/base_attack.py`: We modified the manipultable features, we note few additional only features (We found having some additional only features or unmodifiable features is very important for the defensive effect of PAD models. ). 
-`base_attack_drebin.py`: Ditto, but this is for DREBIN dataset. When you wanna train a DREBIN-NN, use this file instead.
+`base_attack.py`: We changed its manipultable features for ember (Having some additional-only features or unmodifiable features is critical for the defensive effect of PAD models, the PAD can build a strong convex outer bound with these features. ).  Use this file to replace `core/attack/base_attack.py`.  
+`base_attack_drebin.py`: Ditto, but this is for DREBIN dataset. When you wanna train a DREBIN-NN, use this file to replace `core/attack/base_attack.py`.   
+`amd_icnn.py`: When we ran the PAD code, we met an small problem; replace `core/defense/amd_icnn.py` with this file can eliminate the error.  
+`amd_pad_ma.py`: We added our density boosting strategy in this file; if you wanna train the model with SCBNN-DB-PAD, you might need this file. Refer to `class AMalwareDetectionPAD_density` for the modification. Replace `core/defense/amd_pad_ma.py` with this file to use it.  
+`amd_pad_ma_test.py`: This is the script of training PAD models, you may need to have your own modification, such as replacing the dataset with clean or poisoned dataset and training strategies(with or without density boosting). Replace `example/amd_pad_ma_test.py` with this file. 
+
+After all, you can run `python -m examples.amd_pad_ma_test --cuda --use_cont_pertb --beta_1 0.1 --beta_2 1.0 --lambda_lb 1.0 --lambda_ub 1.0 --seed 0 --batch_size 128 --proc_number 10 --epochs 50 --max_vocab_size 10000 --dense_hidden_units "1024,512,256" --weight_decay 0.0 --lr 0.001 --dropout 0.6  --ma "stepwise_max" --steps_l1 50 --steps_linf 50 --step_length_linf 0.02 --steps_l2 50 --step_length_l2 0.5 --is_score_round` to launch the training and use the model to do the later verification. 
+
 
 
 
