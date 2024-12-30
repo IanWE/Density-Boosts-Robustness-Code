@@ -1,5 +1,9 @@
 # Density-Boosts-Robustness-Code
-This is the implementation for paper **Density Boosts Everything: A One-stop Strategy for Improving Performance, Robustness, and Sustainability of Malware Detectors**, which is published on NDSS 2025. If you meet any problem of this code reposity, feel free to contact [me](jianwentian1994@foxmail.com). 
+This is the implementation for paper **Density Boosts Everything: A One-stop Strategy for Improving Performance, Robustness, and Sustainability of Malware Detectors**, which is published on NDSS 2025. 
+
+If you meet any problem of this code reposity, feel free to contact me(jianwentian1994@foxmail.com). 
+
+If you only care about the core algorithm of this paper, see `process_data_bundle.py` for implementation of _subspace compression_ with bundling and function `def train()` in `core/utils.py` for implementation of _density boosting_.
 
 ## Environments
 The code repository is build on a Ubuntu 20.04 with python 3.8.10.  
