@@ -24,6 +24,7 @@ python process_data_bundle.py # dataset for training SCBNN
 
 
 ## Description of Core Files
+```
 `app.py`: This file help wrap all models into api for remote access (e.g. from docker).
 `core/` is the directory of main codes.  
 `core/model_utils.py`: This module is for model usages, e.g. loading, training, saving, evaluating models, explanation (SHAP).  
@@ -35,11 +36,10 @@ python process_data_bundle.py # dataset for training SCBNN
 `core/utils.py`: This module is for different tools/algorithms/implementations. 
 `materials/` contains all saved files and results.  
 `datasets/` is the directory of datasets. 
-
-`pad/` is the directory of PAD code, we modified it for simplifying usage of the API. Please refer to [its original version](https://github.com/deqangss/pad4amd) for training models.
+`pad/` is the directory of PAD code, we modified it for simplifying usage of the API. Please refer to [its original version](https://github.com/deqangss/pad4amd) for training models. 
 `modified_MAB/` contains the modified code for MAB; you can put these code files to the original MAB directory.  
 `modified_PAD/` contains the modified code for PAD; you can put these code files to the original PAD directory.  
-
+```
 
 ### Description of files in Modified_PAD/
 `base_attack.py`: We changed its manipultable features for ember (Having some additional-only features or unmodifiable features is critical for the defensive effect of PAD models, the PAD can build a strong convex outer bound with these features. ).  Use this file to replace `core/attack/base_attack.py`.  
@@ -48,7 +48,11 @@ python process_data_bundle.py # dataset for training SCBNN
 `amd_pad_ma.py`: We added our density boosting strategy in this file; if you wanna train the model with SCBNN-DB-PAD, you might need this file. Refer to `class AMalwareDetectionPAD_density` for the modification. Replace `core/defense/amd_pad_ma.py` with this file to use it.  
 `amd_pad_ma_test.py`: This is the script of training PAD models, you may need to have your own modification, such as replacing the dataset with clean or poisoned dataset and training strategies(with or without density boosting). Replace `example/amd_pad_ma_test.py` with this file. 
 
-After all, you can run `python -m examples.amd_pad_ma_test --cuda --use_cont_pertb --beta_1 0.1 --beta_2 1.0 --lambda_lb 1.0 --lambda_ub 1.0 --seed 0 --batch_size 128 --proc_number 10 --epochs 50 --max_vocab_size 10000 --dense_hidden_units "1024,512,256" --weight_decay 0.0 --lr 0.001 --dropout 0.6  --ma "stepwise_max" --steps_l1 50 --steps_linf 50 --step_length_linf 0.02 --steps_l2 50 --step_length_l2 0.5 --is_score_round` to launch the training and use the model to do the later verification. 
+After all, you can run 
+```sh
+$ python -m examples.amd_pad_ma_test --cuda --use_cont_pertb --beta_1 0.1 --beta_2 1.0 --lambda_lb 1.0 --lambda_ub 1.0 --seed 0 --batch_size 128 --proc_number 10 --epochs 50 --max_vocab_size 10000 --dense_hidden_units "1024,512,256" --weight_decay 0.0 --lr 0.001 --dropout 0.6  --ma "stepwise_max" --steps_l1 50 --steps_linf 50 --step_length_linf 0.02 --steps_l2 50 --step_length_l2 0.5 --is_score_round
+```
+to launch the training and use the model to do the later verification. 
 
 
 
