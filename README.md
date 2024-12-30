@@ -1,8 +1,8 @@
 # Density-Boosts-Robustness-Code
-This is the implementation for paper **Density Boosts Everything: A One-stop Strategy for Improving Performance, Robustness, and Sustainability of Malware Detectors**, which is to be appear on NDSS 2025.
+This is the implementation for paper **Density Boosts Everything: A One-stop Strategy for Improving Performance, Robustness, and Sustainability of Malware Detectors**, which is published on NDSS 2025.
 
 ## Environments
-The code repository is build on a Ubuntu 20.04 with python 3.8.10. 
+The code repository is build on a Ubuntu 20.04 with python 3.8.10.  
 All required packages are listed in `requirements.txt`; you can use `pip install -r requirements` to install them.
 
 ## Datasets
