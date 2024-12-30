@@ -17,14 +17,15 @@ python process_data_histogram.py # dataset for training His togramNN
 python process_data_bundle.py # dataset for training SCBNN
 ```
 2. Train base models (vanillann, lightgbm, ltnn, binarizednn, scnn, scbnn, scbdbnn) for later evaluations, please run `python train_models.py`. Besides, you can train SCBNN or SCNN with different parameters as listed in this file for other evaluations.
-3. Evaluate the concept drift on Sorel-20M by running `python evaluating_concept_drift_on_SOREL.py`, and all results will be saved in `materials/evaluation_on_sorel.txt`
-4. Evaluate the backdoor effect by running `python train_backdoored_model.py`, and all results will be saved in `materials/`.
-5. Before 
+4. Evaluate the concept drift on Sorel-20M by running `python evaluating_concept_drift_on_SOREL.py`, and all results will be saved in `materials/evaluation_on_sorel.txt`
+5. Evaluate the backdoor effect by running `python train_backdoored_model.py`, and all results will be saved in `materials/`.
+6. Before start evaluating evasion attacks, run `python app.py` to wrap all models into apis. Then refer to `gamma_attack.py` for evaluating GAMMA Evasion on different models and refer to [MAB-malware](https://github.com/weisong-ucr/MAB-malware) to evaluating MAB evasion (you can put files in `modified_MAB/`  to MAB docker to implement attacks against our wrapped apis.).
 
 
-
+## 
 
 ## Description of Core Files
+`app.py`: This file help wrap all models into api for remote access (e.g. from docker).
 `core/` is the directory of main codes.  
 `core/model_utils.py`: This module is for model usages, e.g. loading, training, saving, evaluating models, explanation (SHAP).  
 `core/data_utils.py`: This module is for processing dataset, e.g. loading/saving dataset, loading/saving/processing features.   
@@ -32,9 +33,18 @@ python process_data_bundle.py # dataset for training SCBNN
 `core/feature_selectors.py`: This module is used to implement backdoor attacks.  
 `core/models.py`: This module contains code for training/loading specific models (for easy usages).  
 `core/nn.py;mmsnn.py;ltnn.py;malconv.py`: Definition for different models.  
-`core/utils.py`: This module is for different tools/algorithms/implementations.
+`core/utils.py`: This module is for different tools/algorithms/implementations. 
 `materials/` contains all saved files and results.  
 `datasets/` is the directory of datasets. 
-`modified/` contains the modified code for using original PAD and MAB; you can put these code files to the original PAD/MAB datasets for replicate the experiments. 
+`PAD/` is the directory of PAD code, we modified it for easy usage of the API. Please refer to its original version for training models.
+`modified_MAB/` contains the modified code for MAB; you can put these code files to the original MAB datasets.  
+`modified_PAD/` contains the modified code for PAD; you can put these code files to the original PAD datasets.  
+
+### Description of files in Modified_PAD/
+`core/attack/base_attack.py`: We modified the manipultable features, we note few additional only features (We found having some additional only features or unmodifiable features is very important for the defensive effect of PAD models. ). 
+`base_attack_drebin.py`: Ditto, but this is for DREBIN dataset. When you wanna train a DREBIN-NN, use this file instead.
+
+
+
 
       
