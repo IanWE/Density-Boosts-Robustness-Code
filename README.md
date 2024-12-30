@@ -19,7 +19,7 @@ python process_data_bundle.py # dataset for training SCBNN
 2. Train base models (vanillann, lightgbm, ltnn, binarizednn, scnn, scbnn, scbdbnn) for later evaluations, please run `python train_models.py`. Besides, you can train SCBNN or SCNN with different parameters as listed in this file for other evaluations.
 3. Evaluate the concept drift on Sorel-20M by running `python evaluating_concept_drift_on_SOREL.py`, and all results will be saved in `materials/evaluation_on_sorel.txt`
 4. Evaluate the backdoor effect by running `python train_backdoored_model.py`, and all results will be saved in `materials/`.
-5. 
+5. Before 
 
 
 
