@@ -54,14 +54,10 @@ $ python process_data_bundle.py # Please set the dataset as Contagio first (Extr
 ```
 2. Training the model and evaluate the performance and mimicry attacks by using `Experiments-pdf.ipynb` which includes most PDF-related experiments.
 3. After you train the base models, you can refer to `train_backdoored_pdf.py` for backdoor evaluation on DREBIN.
-3. aaaaa
-4. aaaaa
-5. 
+4. Again, please refer original codes to train the PAD model, you can refer to our files in `modified_PAD/` (mainly see `base_attack.py` and `amd_pad_map.py`) for modification. After that, run 
 ```sh
 $ python -m examples.amd_pad_ma_test --cuda --use_cont_pertb --beta_1 0.1 --beta_2 1.0 --lambda_lb 1.0 --lambda_ub 1.0 --seed 0 --batch_size 128 --proc_number 10 --epochs 50 --max_vocab_size 10000 --dense_hidden_units "1024,512,256" --weight_decay 0.0 --lr 0.001 --dropout 0.6  --ma "stepwise_max" --steps_l1 50 --steps_linf 50 --step_length_linf 0.02 --steps_l2 50 --step_length_l2 0.5 --is_score_round
 ```
-
-
 
 ## Description of Files
 ```
@@ -77,13 +73,18 @@ $ python -m examples.amd_pad_ma_test --cuda --use_cont_pertb --beta_1 0.1 --beta
 |+---materials/ contains all saved files and results.  
 |+---datasets/ is the directory of datasets. 
 |+---pad/ is the directory of PAD code, we modified it for simplifying usage of the API. Please refer to [its original version](https://github.com/deqangss/pad4amd) for training models. 
-|+---modified_MAB/ contains the modified code for MAB; you can put these code files to the original MAB directory.  
+|+---modified_MAB/ contains the modified code for MAB; you can put these code files to the original MAB directory.
+|    |+---chart/: we modified some figure drawing scripts.
+|    |    classifier.py: add a remote classifier.
+|    |    malwares.txt: malwares used for evaluation.
+|    |    models.py: add the definition of remote(out of docker) classifier.
+|    |    samples_manager.py: randomly select samples.
+|    |    test_samples.py: replay evasive samples.
 |+---modified_PAD/ contains the modified code for PAD; you can put these code files to the original PAD directory.
-|    |    base_attack.py: We changed its manipultable features for ember (Having some additional-only features or unmodifiable features is critical for the defensive effect of PAD models, the PAD can build a strong convex outer bound with these features. ).  Use this file to replace `core/attack/base_attack.py`.  
-|    |    base_attack_drebin.py: Ditto, but this is for DREBIN dataset. When you wanna train a DREBIN-NN, use this file to replace `core/attack/base_attack.py`.   
+|    |    base_attack.py: We only changed its manipultable features for ember and PDF (Having some additional-only features or unmodifiable features is critical for the defensive effect of PAD models, the PAD can build a strong convex outer bound with these features. ).  Use this file to replace `pad4amd/core/attack/base_attack.py`.  
 |    |    amd_icnn.py: When we ran the PAD code, we met an small problem; replace `core/defense/amd_icnn.py` with this file can eliminate the error.  
-|    |    amd_pad_ma.py: We added our density boosting strategy in this file; if you wanna train the model with SCBNN-DB-PAD, you might need this file. Refer to "class AMalwareDetectionPAD_density" for the modification. Replace `core/defense/amd_pad_ma.py` with this file to use it.  
-|    |    amd_pad_ma_test.py: This is the script of training PAD models, you may need to have your own modification, such as replacing the dataset with clean or poisoned dataset and training strategies(with or without density boosting). Replace `example/amd_pad_ma_test.py` with this file. 
+|    |    amd_pad_ma.py: We added our density boosting strategy in this file; if you wanna train the model with SCBNN-DB-PAD, you might need this file. Refer to "class AMalwareDetectionPAD_density" for the modification and replace `pad4amd/core/defense/amd_pad_ma.py` with this file to use it.  
+|    |    amd_pad_ma_test.py: This is the script of training PAD models, you may need to have your own modification, such as replacing the dataset with clean or poisoned dataset and training strategies(with or without density boosting). Replace `pad4amd/example/amd_pad_ma_test.py` with this file. 
 ```
 
 
