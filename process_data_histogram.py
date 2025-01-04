@@ -59,4 +59,9 @@ if __name__ == '__main__':
     x_train, y_train, x_test, y_test = data_utils.load_dataset('ember')
     for threshold in [0.16]:#[0.01,0.04,0.08,0.16]
         process(x_train,x_test,2017,threshold)
+    #For PDF dataset
+    #x_train, y_train, x_test, y_test = data_utils.load_dataset('pdf')
+    #for threshold in [0.16]:
+    #    process(x_train,x_test,'pdf',threshold)
+
 

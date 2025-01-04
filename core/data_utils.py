@@ -15,16 +15,18 @@ from core import ember_feature_utils, constants
 from logger import logger
 from multiprocessing import Pool
 
+from tqdm import tqdm
+import json
 import random
 
 # FEATURES
-def load_features(feats_to_exclude, dataset='ember', selected=False, vrb=False):
+def load_features(feats_to_exclude, dataset='ember', year='2015', selected=False, dense_features=[], vrb=False):
     """ Load the features and exclude those in list.
-
     :param feats_to_exclude: (list) list of features to exclude
     :param dataset: (str) name of the dataset being used
     :param selected: (bool) if true load only Lasso selected features for Drebin
     :param vrb: (bool) if true print debug strings
+
     :return: (dict, array, dict, dict) feature dictionaries
     """
 
@@ -37,12 +39,12 @@ def load_features(feats_to_exclude, dataset='ember', selected=False, vrb=False):
         feature_names, non_hashed, hashed = load_pdf_features()
 
     elif dataset == 'drebin':
-        feature_names, non_hashed, hashed, feasible = load_drebin_features(feats_to_exclude, selected)
+        feature_names, non_hashed, hashed, feasible = load_drebin_features(feats_to_exclude, year, selected, dense_features)
 
     else:
         raise NotImplementedError('Dataset {} not supported'.format(dataset))
 
-    feature_ids = list(range(feature_names.shape[0]))
+    feature_ids = list(range(len(feature_names)))
     # The `features` dictionary will contain only numerical IDs
     features = {
         'all': feature_ids,
@@ -70,7 +72,7 @@ def load_features(feats_to_exclude, dataset='ember', selected=False, vrb=False):
                 len(features['feasible'])
             )
         )
-        loggger.debug('\nList of non-hashed features:')
+        logger.debug('\nList of non-hashed features:')
         logger.debug(
             ['{}: {}'.format(f, feat_name[f]) for f in features['non_hashed']]
         )
@@ -126,7 +128,7 @@ def load_pdf_features():
         'producer_uc'
     ]
     #feature_names = np.load('df_features.npy')
-    df = pd.read_csv('pdfs/data.csv')
+    df = pd.read_csv(os.path.join(constants.PDF_DATA_DIR,constants.PDF_DATA_CSV))
     feature_names = df.columns.values[2:]
     non_hashed = [np.searchsorted(feature_names, f) for f in sorted(arbitrary_feat)]
 
@@ -151,7 +153,7 @@ def build_feature_names(dataset='ember'):
     return feature_names.tolist()
 
 
-def load_drebin_features(infeas, selected=False):
+def load_drebin_features(infeas, year='2015', selected=False, dense_features=[]):
     """ Return the list of Drebin features.
 
     Due to the huge number of features we will use the vectorizer file saved
@@ -159,45 +161,66 @@ def load_drebin_features(infeas, selected=False):
 
     :return:
     """
+    #prefixes = {
+    #    'activitylist': 'manifest',
+    #    'broadcastreceiverlist': 'manifest',
+    #    'contentproviderlist': 'manifest',
+    #    'servicelist': 'manifest',
+    #    'intentfilterlist':'manifest',
+    #    'requestedpermissionlist':'manifest',
+    #    'hardwarecomponentslist':'manifest',
+    #    'restrictedapilist':'code',
+    #    'usedpermissionslist':'code',
+    #    'suspiciousapilist':'code',
+    #    'urldomainlist': 'code'
+    #}
     prefixes = {
-        'activitylist': 'manifest',
-        'broadcastreceiverlist': 'manifest',
-        'contentproviderlist': 'manifest',
-        'servicelist': 'manifest',
-        'intentfilterlist':'manifest',
-        'requestedpermissionlist':'manifest',
-        'hardwarecomponentslist':'manifest',
-        'restrictedapilist':'code',
-        'usedpermissionslist':'code',
-        'suspiciousapilist':'code',
-        'urldomainlist': 'code'
+        '':'manifest',
+        'activities': 'manifest',
+        's_and_r': 'manifest',
+        'providers': 'manifest',
+        'intents':'manifest',
+        'app_permissions':'manifest',
+        'api_permissions':'code',
+        'interesting_calls':'code',#dangerous calls
+        'api_calls':'code',
+        'urls': 'code'
     }
     if selected==True:
-        feat_file = os.path.join(constants.SAVE_FILES_DIR,"selected_features.pkl")
+        feat_file = os.path.join(constants.DREBIN_DATA_DIR,f"selected_features_{year}.pkl")
     else:
-        feat_file = os.path.join(constants.SAVE_FILES_DIR,"original_features.pkl")
+        feat_file = os.path.join(constants.DREBIN_DATA_DIR,f"original_features_{year}.pkl")
     # Check if the feature file is available, otherwise create it
     if not os.path.isfile(feat_file):
-        load_drebin_dataset(selected=selected)
+        load_drebin_dataset(year, selected=selected)
     feature_names = joblib.load(feat_file)
-    n_f = feature_names.shape[0]
+    if len(dense_features) != 0:
+        feature_names = [feature_names[i] for i in dense_features]
+    n_f = len(feature_names)
 
-    feasible = [i for i in range(n_f) if feature_names[i].split('_')[0] not in infeas]
-    hashed = [i for i in range(n_f) if prefixes[feature_names[i].split('_')[0]] == 'code']
-    non_hashed = [i for i in range(n_f) if prefixes[feature_names[i].split('_')[0]] == 'manifest']
+    feasible = [i for i in range(n_f) if feature_names[i].split('::')[0] not in infeas]
+    hashed = [i for i in range(n_f) if prefixes[feature_names[i].split('::')[0]] == 'code']
+    non_hashed = [i for i in range(n_f) if prefixes[feature_names[i].split('::')[0]] == 'manifest']
 
-    return np.array(feature_names), non_hashed, hashed, feasible
+    return feature_names, non_hashed, hashed, feasible
 
 
 # DATA SETS
-def load_dataset(dataset='ember', selected=True, processor=None):
+def load_dataset(dataset='ember', selected=True, processor=None, year=2015):
+    """Load a specified dataset based on the dataset name.
+    @param dataset: (str) The name of the dataset to load, default is 'ember'.
+    @param selected: (bool) A flag for dataset selection, default is True.
+    @param processor: (object) A processor used to process data, default is None.
+    @param year: (int) The year of the dataset, only for drebin
+
+    return: (numpy.ndarray) x_train, (numpy.ndarray) y_train, (numpy.ndarray) x_test, (numpy.ndarray) y_test
+    """
     if dataset == 'ember':
         x_train, y_train, x_test, y_test = load_ember_dataset()
-
     elif dataset == 'pdf':
         x_train, y_train, x_test, y_test = load_pdf_dataset()
     elif dataset == 'drebin':
-        x_train, y_train, x_test, y_test = load_drebin_dataset(selected)
+        x_train, y_train, x_test, y_test = load_drebin_dataset(year,selected)
     elif dataset == "ember2018":
         x_train, y_train, x_test, y_test = load_ember_2018()
     elif dataset == "emberall":
@@ -265,6 +288,7 @@ class Processor(object):
         if not self.bundle_rule:
             return x
         for i in self.bundle_rule:
+            #traveling all rules
             for rule in self.bundle_rule[i]:
                 indicies = x[:,i] == rule[0]
                 x[indicies,rule[1]] = rule[2]
@@ -288,6 +312,56 @@ class HistogramProcessor:
                 x_i[(x_>=valueset[i])&(x_<valueset[i+1])] = gap * i
         return x
 
+class DrebinProcessor:
+    def __init__(self,selected_features,bundle_rule,f_in):
+        self.selected_features = selected_features
+        self.bundle_rule = bundle_rule
+        self.f_in = f_in
+    def process(self,x):
+        if len(x.shape)!=2:
+            raise NotImplementedError('input dim must be 2!')
+        if hasattr(x,'todense'):            
+            x = np.array(x[:,self.selected_features].todense())
+        else:
+            x = x[:,self.selected_features]
+        for i in self.bundle_rule:
+            for rule in self.bundle_rule[i]:
+                indicies = x[:,i]==rule[0]
+                x[indicies,rule[1]] = rule[2]
+                if i != rule[1]:
+                    x[:,i] = 0
+        x = x[:,self.f_in]
+        return x
+
+def load_compressed_pdf(tag='pdf', ratio=8, binarization='bundle'):
+    """Load compressed PDF data based on specified parameters.
+    @param tag: (str) Tag for the data, used for saving and loading dataset.
+    @param ratio: (int) Compression ratio, default is 8.
+    @param binarization: (str or bool) Binarization method, default is 'bundle'.
+
+    return: (numpy.ndarray) x_train, (numpy.ndarray) y_train, (numpy.ndarray) x_test, (numpy.ndarray) y_test, (object) processor
+    """
+    if binarization == 'bundle':
+        x_train, x_test, y_train, y_test = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"compressed_{tag}_{ratio}_reallocated.pkl"))
+        up,lp,valueset_list = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"materials_{tag}.pkl"))
+        rules,c_valueset_list,bundle_rule = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"compressed_{tag}_{ratio}_material.pkl"))
+        processor = Processor(up,lp,valueset_list,rules,c_valueset_list,ratio,binarization,bundle_rule)
+    elif binarization == False:
+        x_train, x_test, y_train, y_test = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"compressed_{tag}_{ratio}_reallocated_sc.pkl"))
+        up,lp,valueset_list = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"materials_{tag}_sc.pkl"))
+        rules,c_valueset_list = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"compressed_{tag}_{ratio}_material_sc.pkl"))
+        processor = Processor(up,lp,valueset_list,rules,c_valueset_list,ratio,binarization,[])
+    elif binarization == 'histogram':
+        x_train, x_test, y_train, y_test = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"compressed_{tag}_{ratio}_histogram.pkl"))
+        c_valueset_list = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"compressed_{tag}_{ratio}_material_histogram.pkl"))
+        processor = HistogramProcessor(c_valueset_list,ratio)
+    else:
+        print("Wrong compression method!")
+        return 
+    return x_train, y_train, x_test, y_test, processor
+
+
+#please run process.py first boxoutdata_2017_100_new.pkl
 def load_compressed_ember(tag, ratio=8, binarization=False):
     if binarization == False:
         x_train, x_test, y_train, y_test = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"compressed_{tag}_{ratio}_reallocated.pkl"))
@@ -312,6 +386,12 @@ def load_compressed_ember(tag, ratio=8, binarization=False):
         print("Wrong compression method!")
         return 
     return x_train, y_train, x_test, y_test, processor
+
+def load_compressed_drebin(tag='2015', ratio=16):
+    x_train,x_test,y_train,y_test = joblib.load(f"materials/compressed_drebin_{tag}_{ratio}.pkl")
+    selected_features,bundle_rule,f_in = joblib.load(f"materials/compressed_drebin_{tag}_{ratio}_material.pkl")#used for processing other samples
+    processor = DrebinProcessor(selected_features,bundle_rule,f_in)
+    return x_train, x_test, y_train, y_test, processor
 
 def load_processor(tag,ratio,binarization):
     """Load the processor
@@ -453,55 +533,67 @@ def _vectorize(x, y):
     y = np.asarray(y)
     return x, y, vectorizer
 
+def get_sample_path_drebin(year):
+    samples_info = pd.read_csv(os.path.join(constants.DREBIN_DATA_DIR,"samples_info.csv"))
+    train_samplenames = samples_info[((samples_info.vt_detection>=10)|(samples_info.vt_detection==0))&(samples_info.dex_date<year)].sha256.tolist()
+    test_samplenames = samples_info[((samples_info.vt_detection>=10)|(samples_info.vt_detection==0))&(samples_info.dex_date>year)].sha256.tolist()
+    return train_samplenames,test_samplenames
 
-def load_drebin_dataset(selected=False):
+def load_drebin_dataset(year='2015',selected=False, end='2019'):
     """ Vectorize and load the Drebin dataset.
 
     :param selected: (bool) if true return feature subset selected with Lasso
     :return
     """
-    AllMalSamples = os.listdir(constants.DREBIN_DATA_DIR+'malware/')
-    AllMalSamples = list(map(lambda x:constants.DREBIN_DATA_DIR+'malware/'+x,AllMalSamples))
-    AllGoodSamples = os.listdir(constants.DREBIN_DATA_DIR+'benign/')
-    AllGoodSamples = list(map(lambda x:constants.DREBIN_DATA_DIR+'benign/'+x,AllGoodSamples))
-    AllSampleNames = AllMalSamples + AllGoodSamples
-    AllSampleNames = list(filter(lambda x:x[-5:]==".data",AllSampleNames))#extracted features
+    #samples_info = pd.read_csv('../samples_info.csv')
+    #extracted_features = joblib.load("datasets/drebin/raw_datasets.pkl")
 
-    # label malware as 1 and goodware as -1
-    Mal_labels = np.ones(len(AllMalSamples))
-    Good_labels = np.empty(len(AllGoodSamples))
-    Good_labels.fill(-1)
-    y = np.concatenate((Mal_labels, Good_labels), axis=0)
     logger.info("Label array - generated")
-
     # First check if the processed files are already available,
     # load them directly if available.
-    if os.path.isfile(constants.SAVE_FILES_DIR+"drebin.pkl"):
-        x_train,y_train,x_test,y_test,features,x_train_names,x_test_names = joblib.load(constants.SAVE_FILES_DIR+"drebin.pkl")
+    if os.path.isfile(constants.DREBIN_DATA_DIR+f"drebin_{year}_{end}.pkl"):
+        x_train,y_train,x_test,y_test = joblib.load(constants.DREBIN_DATA_DIR+f"drebin_{year}_{end}.pkl")
+        features = joblib.load(constants.DREBIN_DATA_DIR+f'original_features_{year}.pkl')
     else:
-        FeatureVectorizer = TF(input='filename', tokenizer=lambda x: x.split('\n'), token_pattern=None,
-                                           binary=True)
-        x_train_samplenames, x_test_samplenames, y_train, y_test = train_test_split(AllSampleNames, y, test_size=0.2,random_state=0)
-        x_train = FeatureVectorizer.fit_transform(x_train_samplenames)
-        x_test = FeatureVectorizer.transform(x_test_samplenames)
-        features = FeatureVectorizer.get_feature_names_out()
-        joblib.dump([x_train,y_train,x_test,y_test,features,x_train_samplenames,x_test_samplenames],constants.SAVE_FILES_DIR+"drebin.pkl")
-        joblib.dump(np.array(features),os.path.join(constants.SAVE_FILES_DIR,"original_features.pkl"))
+        raw_datasets_path = os.path.join(constants.DREBIN_DATA_DIR,"raw_datasets.pkl")
+        y = np.array(json.load(open(os.path.join(constants.DREBIN_DATA_DIR,"extended-features-y.json"))))
+        if os.path.isfile(raw_datasets_path):
+            extracted_features = joblib.load(raw_datasets_path)
+            samples_info = pd.read_json(os.path.join(constants.DREBIN_DATA_DIR,"extended-features-meta.json"))
+        else:
+            samples_info = pd.read_json(os.path.join(constants.DREBIN_DATA_DIR,"extended-features-meta.json"))
+            meta = json.load(open(os.path.join(constants.DREBIN_DATA_DIR,"extended-features-X.json")))
+            extracted_features = []
+            for f in meta:
+                d = list(f.keys())
+                extracted_features.append("|==========|".join(d))
+            joblib.dump(extracted_features,os.path.join(constants.DREBIN_DATA_DIR,"raw_datasets.pkl"))
+        x_train_raw = [extracted_features[i] for i in samples_info[(samples_info.dex_date<year)].index.tolist()]
+        y_train = np.array(y)[(samples_info.dex_date<year).tolist()]
+        x_test_raw = [extracted_features[i] for i in samples_info[(samples_info.dex_date>year)&(samples_info.dex_date<end)].index.tolist()]
+        y_test = np.array(y)[((samples_info.dex_date>year)&(samples_info.dex_date<end)).tolist()]
+        cv = CountVectorizer(binary=True,tokenizer=lambda x:x.split('|==========|'))
+        x_train = cv.fit_transform(x_train_raw)
+        x_test = cv.transform(x_test_raw)
+        joblib.dump(cv.get_feature_names_out(),os.path.join(constants.DREBIN_DATA_DIR,f'original_features_{year}.pkl'))
+        joblib.dump([x_train,y_train,x_test,y_test],os.path.join(constants.DREBIN_DATA_DIR,f'drebin_{year}_{end}.pkl'))
     if selected:
-        selector_path = os.path.join(constants.SAVE_FILES_DIR,"selector.pkl")
+        selector_path = os.path.join(constants.DREBIN_DATA_DIR,f"selector_{year}_{end}.pkl")
         if os.path.isfile(selector_path):
             selector = joblib.load(selector_path)
         else:
             random.seed(1)
-            lsvc = LinearSVC(C=0.05, penalty="l1", dual=False).fit(x_train, y_train)
+            lsvc = LinearSVC(C=1, penalty="l2", dual=False).fit(x_train, y_train)
             r=lsvc.predict(x_train)
             logger.info("Acc of selector:",(r==y_train).sum()/y_train.shape[0])
-            selector = SelectFromModel(lsvc, prefit=True)
+            selector = SelectFromModel(lsvc, prefit=True, max_features=2000)
+            #selector.fit(x_train,y_train)
             logger.debug("Features after selection: %d",np.where(selector.get_support()==True)[0].shape[0])
             joblib.dump(selector,selector_path)
         x_train = selector.transform(x_train) 
         x_test = selector.transform(x_test) 
-        joblib.dump(np.array(features)[selector.get_support()],os.path.join(constants.SAVE_FILES_DIR,"selected_features.pkl"))
+        selected_features = [features[i] for i in np.where(selector.get_support()==True)[0]]
+        joblib.dump(selected_features,os.path.join(constants.SAVE_FILES_DIR,"selected_features_{year}_{end}.pkl"))
     return x_train, y_train, x_test, y_test
 
 def extract_features(bytez):

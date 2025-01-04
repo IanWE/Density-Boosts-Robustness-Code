@@ -21,15 +21,14 @@ class NN(object):
         self.exp = None
         self.lr = 0.01
         self.loss = torch.nn.CrossEntropyLoss()
-        #self.loss = torch.nn.BCELoss()
         #self.opt = torch.optim.Adam(self.net.parameters(), lr=self.lr, betas=(0.9,0.999))
         self.opt = torch.optim.AdamW(self.net.parameters(), lr=self.lr, weight_decay=1e-5)
 
     def fit(self, X, y, x_test, y_test, epoch, method):
         self.net.train()
-        batch_size = 2048#max(2048,X.shape[0]//100)
+        batch_size = 2048
         logger.debug("batch size:",batch_size)
-        if self.data_id in ['ember','pdf']:# and X.max()>1:
+        if self.data_id in ['ember','pdf']:
             logger.debug("It's EMBER data")
             #print(self.features_postproc_func(X))
             self.normal.fit(X)
@@ -39,8 +38,7 @@ class NN(object):
         self.net.eval()
 
     def predict(self, X):
-        if self.data_id in ['ember','pdf']:# and X.max()>1:
-            #return utils.predict(self.net, self.features_postproc_func(X.copy()))[:,1]
+        if self.data_id in ['ember','pdf']:
             return utils.predict(self.net, self.normal.transform(X))[:,1]
         else:
             return utils.predict(self.net, X)[:,1]
@@ -67,8 +65,11 @@ class NN(object):
     def explain(self, X_back, X_exp, n_samples=100):
         if self.exp is None:
             logger.debug("X_back shape:{}".format(X_back.shape))
-            self.exp = shap.GradientExplainer(self.net, [torch.Tensor(self.normal.transform(X_back))])
-        return self.exp.shap_values([torch.Tensor(self.normal.transform(X_exp))], nsamples=n_samples)
+            if self.data_id in ['ember','pdf']:
+                self.exp = shap.GradientExplainer(self.net, [torch.Tensor(self.normal.transform(X_back))])
+            else:
+                self.exp = shap.GradientExplainer(self.net, [torch.Tensor(X_back)])
+        return self.exp.shap_values([torch.Tensor(X_exp)], nsamples=n_samples)
 
     def save(self, save_path, file_name='nn'):
         # Save the trained scaler so that it can be reused at test time

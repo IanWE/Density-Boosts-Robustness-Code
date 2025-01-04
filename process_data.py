@@ -161,6 +161,10 @@ def combine(tag,threshold):
 if __name__ == '__main__':
     x_train, y_train, x_test, y_test = data_utils.load_dataset('ember')
     preprocess(x_train, x_test, y_train, y_test, 2017)
-    #for threshold in [0.01,0.02,0.04,0.08,0.16,0.32]:
     for threshold in [0.08]:
         combine(2017,threshold)
+    #For PDF dataset
+    #x_train,y_train,x_test,y_test = data_utils.load_pdf_dataset()
+    #preprocess(x_train,x_test,'pdf')
+    #for threshold in [0.01,0.04,0.08,0.16]:
+    #    combine('pdf',threshold)

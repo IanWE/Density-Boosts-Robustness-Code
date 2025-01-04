@@ -50,19 +50,18 @@ class BaseAttack(Module):
         self.initialize()
 
     def initialize(self):
+        #apis,manipulation = joblib.load("../materials/feat_info_bundle.pkl")
+        #apis,manipulation = joblib.load("../materials/pdf_features.pkl")
+        #apis,manipulation = joblib.load("../materials/feat_info_selected.pkl")
         if self.manipulation_x is None:
             #self.manipulation_x = self.inverse_feature.get_manipulation()
-            self.manipulation_x = [1]*2381
+            self.manipulation_x = [1]*2381 #EMBER
+            add_only = [512,513,610,612,613,614,615,616,617,619,620,621,622,623,624,625,685,686,687,688,689,690,691,692]
         self.manipulation_x = torch.LongTensor(self.manipulation_x).to(self.device)
-        add_only = [512,513,610,612,613,614,615,616,617,619,620,621,622,623,624,625,685,686,687,688,689,690,691,692]
-        self.manipulation_x[add_only] = 0
-        #if self.omega is None:
-        #    self.omega = range(2381)#self.inverse_feature.get_interdependent_apis()
-        self.omega = torch.tensor([0]*2381).to(self.device)#torch.sum(
-        #    F.one_hot(torch.tensor(self.omega), num_classes=len(self.inverse_feature.vocab)),
-        #    dim=0).to(self.device)
-        api_flag = [0]*2381#range(2381)#self.inverse_feature.get_api_flag()
-        self.api_flag = torch.LongTensor(api_flag).bool().to(self.device)
+        self.manipulation_x[add_only] = 0 #EMBER's additional-only features
+        self.omega = torch.tensor([0]*2381).to(self.device)
+        self.api_flag = torch.LongTensor([0]*2381).bool().to(self.device)#EMBER has no api indicies
+        #self.api_flag = apis # DREBIN's api indicies
 
     def perturb(self, model, x, adj=None, label=None):
         """

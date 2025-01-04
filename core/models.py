@@ -147,9 +147,7 @@ def get_compressed_density_model(binarization='bundle',tag = '2017',ratio='8',d 
         cd_model = model_utils.load_model(model_id,'ember',saved_dir,f"compressed_{model_id}_{tag}_{ratio}_{binarization}_{d}")
         f1 = model_utils.evaluate_model(cd_model,x_test,y_test)
     y_pred = cd_model.predict(x_test)
-    thr = 0.5
-    #thr = find_threshold(y_test,y_pred,0.01)[0]
-    #print(thr,y_test[y_pred>thr].sum()/(y_test[y_pred>thr].sum()+y_test[y_pred<=thr].sum()))    
+    thr = 0.5 
     if model_only:#only return the model
         return cd_model,thr,processor
     return x_train,y_train,x_test,y_test,cd_model,thr,processor
@@ -205,3 +203,18 @@ def get_pad_model(model_name="basepad",model_only=False):
     if model_only:#only return the model
         return max_adv_training_model,thr,processor
     return x_train,y_train,x_test,y_test,max_adv_training_model,thr,processor
+
+def get_drebin_svm(model_only=False):
+    if os.path.exists('models/drebin/linearsvm_drebin_full.pkl'):
+        basesvm = model_utils.load_model('linearsvm','drebin','models/drebin/','linearsvm_drebin_full')
+    else:
+        basesvm = model_utils.train_model('linearsvm','drebin',x_train_,y_train_,x_test,y_test)
+        model_utils.save_model('linearsvm',basesvm,'models/drebin/','linearsvm_drebin_full')
+    r = basesvm.predict(x_test)
+    print(classification_report(r,y_test,digits=5))
+    f1_list, aut = evaluate_aut(basesvm,x_test,y_test,year='2015')
+    print(aut)
+    if model_only:#only return the model
+        return basesvm,0.5,processor
+    return x_train_,y_train_,x_test,y_test,basesvm,0.5,processor
+

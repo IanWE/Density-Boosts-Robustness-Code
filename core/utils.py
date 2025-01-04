@@ -29,6 +29,14 @@ from logger import logger
 if not os.path.exists("tmp/"):
     os.mkdir("tmp/")
 
+def aut_score(f1_list):
+    aut = 0
+    for i in range(len(f1_list)-1):
+        aut += (f1_list[i]+f1_list[i+1])/2
+    aut = aut/(len(f1_list)-1)
+    print(aut)
+    return aut
+
 def data_iter(batch_size, features, labels=None, shuffle=True): # Deal with sparse iter
     num_examples = features.shape[0]
     indices = list(range(num_examples))
@@ -76,12 +84,37 @@ def find_threshold(y_true, y_pred, fpr_target):
         fpr = get_fpr(y_true, y_pred > thresh)
     return thresh, fpr
 
-def aut_score(f1_list):
-    aut = 0
-    for i in range(len(f1_list)-1):
-        aut += (f1_list[i]+f1_list[i+1])/2
-    aut = aut/(len(f1_list)-1)
-    return aut
+def evaluate_aut(model,x_test,y_test,year='2015'):
+    samples_info = pd.read_json(os.path.join(constants.DREBIN_DATA_DIR,"extended-features-meta.json"))
+    timelines = np.array([
+                 '2015-01','2015-02','2015-03','2015-04','2015-05','2015-06',
+                 '2015-07','2015-08','2015-09','2015-10','2015-11','2015-12',
+                 '2016-01','2016-02','2016-03','2016-04','2016-05','2016-06',
+                 '2016-07','2016-08','2016-09','2016-10','2016-11','2016-12',
+                 '2017-01','2017-02','2017-03','2017-04','2017-05','2017-06',
+                 '2017-07','2017-08','2017-09','2017-10','2017-11','2017-12',
+                 '2018-01','2018-02','2018-03','2018-04','2018-05','2018-06',
+                 '2018-07','2018-08','2018-09','2018-10','2018-11','2018-12',
+                 '2019-01'])
+    test_samples = samples_info[(samples_info.dex_date>year)]
+    timelines = timelines[timelines>year]
+    f1_list = []
+    goodware_count = []
+    malware_count = []
+    for i in range(len(timelines)-1):
+        indicies = (test_samples.dex_date>timelines[i])&(test_samples.dex_date<timelines[i+1])
+        x_t,y_t = x_test[indicies],y_test[indicies]
+        #print(timelines[i]+": ")
+        if isinstance(model,LinearSVC):
+            r = model.predict(x_t)
+        else:
+            r = model.predict(x_t)>0.5
+        f1_list.append(f1_score(y_t,r))
+        #print(f1_list[-1])
+        goodware_count.append(y_t.shape[0]-y_t.sum())
+        malware_count.append(y_t.sum())
+        #print(goodware_count[-1],malware_count[-1])
+    return f1_list, aut_score(f1_list)
 
 def evaluate(y_true,y_pred,target):
     thr,fpr = find_threshold(y_true,y_pred,target)
@@ -99,6 +132,14 @@ def crop(x,ratio,indicies):
     zero_indices = np.random.choice(available_index, k, replace=False)
     mask[zero_indices] = 0
     return x*torch.Tensor(mask)
+
+#def crop(x,ratio,probabilities):
+#    l = x.shape[1]
+#    mask = np.ones(x.shape, dtype=int)
+#    k = int(ratio * l) if ratio>0 else np.random.randint(int(0.01 * l), int(0.15 * l) + 1)
+#    zero_indices = np.random.choice(l, k, replace=False)
+#    mask[:,zero_indices] = 0
+#    return x*torch.Tensor(mask)
 
 def bincount(arr):
     if isinstance(arr, torch.Tensor):
@@ -118,8 +159,8 @@ def get_coredict(x_train):
     coredict["available_indicies"] = np.zeros(x_train.shape[1])
     for i in range(x_train.shape[1]):
         coredict[i] = dict()
-        unique_value_counts = bincount(x_train[:,i])
-        for v,c in unique_value_counts:   
+        unique_value_counts = bincount(x_train[:,i])#convert into Tensor in case of precision inconsistency
+        for v,c in unique_value_counts:
             coredict[i][v] = c
         coredict["sparsity_list"][i] = gini(list(coredict[i].values()))
         if len(coredict[i].values())>1:#has more values
@@ -178,10 +219,17 @@ def load_x2018(processor=None):
             x_train_2018,y_train_2018,x_test_2018,y_test_2018 = data_utils.load_dataset('ember2018')
             x_2018 = np.concatenate([x_train_2018,x_test_2018])
             y_2018 = np.concatenate([y_train_2018,y_test_2018])
-            print("Processing x_2018")
             processor.process(x_2018)
             joblib.dump([x_2018,y_2018],os.path.join(constants.SAVE_FILES_DIR,f"x2018_{processor.threshold}_{processor.new}.pkl"))
     return x_2018,y_2018
+
+def mimicry(X,y):
+    x_m = X[y==1]
+    x_b = X[y==0].clone()
+    indicies = np.random.choice(x_m.shape[0], size=x_b.shape[0], replace=True)
+    x_b = x_b + x_m[indicies]
+    x_b[x_b>1] = 1
+    return x_b
 
 def train(X_train, y_train, x_test, y_test, batch_size, net, loss, optimizer, device, num_epochs, method='',*args):
     net = net.to(device)
@@ -252,9 +300,7 @@ def train(X_train, y_train, x_test, y_test, batch_size, net, loss, optimizer, de
             torch.save(net.state_dict(), os.path.join('tmp/', temp_filename + '.pkl')) 
         logger.info('epoch %d, loss %.4f, train acc %.5f, test f1 %.5f, best f1 %.5f, time %.1f sec'
           % (epoch + 1, train_l_sum / batch_count, train_acc_sum / n, f1, best_f1, time.time() - start))
-        #if epoch!=0 and epoch%100==0 and 'density' in method:
-        #    torch.save(net.state_dict(),f"tmp/{method}_{epoch}.pkl")
-    #Saving the model performing best on the validation set.
+    #Loading the model performing best on the validation set.
     if isinstance(x_test, np.ndarray):
         net.load_state_dict(torch.load(os.path.join('tmp/', temp_filename + '.pkl')))
         os.remove(os.path.join('tmp/', temp_filename + '.pkl'))
@@ -331,52 +377,52 @@ def features_postproc_func(x):
     x[gz] = np.log(1 + x[gz])
     return x
 
-def greedy_find_bin(distinct_values, counts, max_bin, total_cnt, min_data_in_bin=3):  
-    bin_upper_bound = []   
-    if len(distinct_values) <= max_bin:  
-        cur_cnt_inbin = 0  
-        for i in range(len(distinct_values) - 1):  
-            cur_cnt_inbin += counts[i]  
-            if cur_cnt_inbin >= min_data_in_bin:  
-                val = (distinct_values[i] + distinct_values[i + 1]) / 2.0  
-                bin_upper_bound.append(val)  
-                cur_cnt_inbin = 0  
-        bin_upper_bound.append(float('inf'))  # Append infinity for the last bin upper bound.  
-    else:  
-        if min_data_in_bin > 0:  
-            max_bin = min(max_bin, total_cnt // min_data_in_bin)  
-            max_bin = max(max_bin, 1)  
-        mean_bin_size = total_cnt / max_bin  
-        rest_bin_cnt = max_bin  
-        rest_sample_cnt = total_cnt  
-        is_big_count_value = [count >= mean_bin_size for count in counts]  
-        rest_bin_cnt -= sum(is_big_count_value)  
-        rest_sample_cnt -= sum(c for c, big in zip(counts, is_big_count_value) if big)  
-        mean_bin_size = rest_sample_cnt / rest_bin_cnt  
-        upper_bounds = [float('inf')] * max_bin  
-        lower_bounds = [float('inf')] * max_bin  
-        bin_cnt = 0  
-        lower_bounds[bin_cnt] = distinct_values[0]  
-        cur_cnt_inbin = 0  
-        for i in range(len(distinct_values) - 1):  
-            if not is_big_count_value[i]:  
-                rest_sample_cnt -= counts[i]  
-            cur_cnt_inbin += counts[i]  
-            if is_big_count_value[i] or cur_cnt_inbin >= mean_bin_size or (is_big_count_value[i + 1] and cur_cnt_inbin >= max(1, mean_bin_size * 0.5)):  
-                upper_bounds[bin_cnt] = distinct_values[i]  
-                bin_cnt += 1  
-                lower_bounds[bin_cnt] = distinct_values[i + 1]  
-                if bin_cnt >= max_bin - 1:  
-                    break  
-                cur_cnt_inbin = 0  
-                if not is_big_count_value[i]:  
-                    rest_bin_cnt -= 1  
+def greedy_find_bin(distinct_values, counts, max_bin, total_cnt, min_data_in_bin=3):
+    bin_upper_bound = []
+    if len(distinct_values) <= max_bin:
+        cur_cnt_inbin = 0
+        for i in range(len(distinct_values) - 1):
+            cur_cnt_inbin += counts[i]
+            if cur_cnt_inbin >= min_data_in_bin:
+                val = (distinct_values[i] + distinct_values[i + 1]) / 2.0
+                bin_upper_bound.append(val)
+                cur_cnt_inbin = 0
+        bin_upper_bound.append(float('inf'))  # Append infinity for the last bin upper bound.
+    else:
+        if min_data_in_bin > 0:
+            max_bin = min(max_bin, total_cnt // min_data_in_bin)
+            max_bin = max(max_bin, 1)
+        mean_bin_size = total_cnt / max_bin
+        rest_bin_cnt = max_bin
+        rest_sample_cnt = total_cnt
+        is_big_count_value = [count >= mean_bin_size for count in counts]
+        rest_bin_cnt -= sum(is_big_count_value)
+        rest_sample_cnt -= sum(c for c, big in zip(counts, is_big_count_value) if big)
+        mean_bin_size = rest_sample_cnt / rest_bin_cnt
+        upper_bounds = [float('inf')] * max_bin
+        lower_bounds = [float('inf')] * max_bin
+        bin_cnt = 0
+        lower_bounds[bin_cnt] = distinct_values[0]
+        cur_cnt_inbin = 0
+        for i in range(len(distinct_values) - 1):
+            if not is_big_count_value[i]:
+                rest_sample_cnt -= counts[i]
+            cur_cnt_inbin += counts[i]
+            if is_big_count_value[i] or cur_cnt_inbin >= mean_bin_size or (is_big_count_value[i + 1] and cur_cnt_inbin >= max(1, mean_bin_size * 0.5)):
+                upper_bounds[bin_cnt] = distinct_values[i]
+                bin_cnt += 1
+                lower_bounds[bin_cnt] = distinct_values[i + 1]
+                if bin_cnt >= max_bin - 1:
+                    break
+                cur_cnt_inbin = 0
+                if not is_big_count_value[i]:
+                    rest_bin_cnt -= 1
                     mean_bin_size = rest_sample_cnt / max(rest_bin_cnt,1)
-        bin_cnt += 1  
-        bin_upper_bound.clear()  
-        for i in range(bin_cnt - 1):  
-            val = (upper_bounds[i] + lower_bounds[i + 1]) / 2.0   
-            bin_upper_bound.append(val)  
+        bin_cnt += 1
+        bin_upper_bound.clear()
+        for i in range(bin_cnt - 1):
+            val = (upper_bounds[i] + lower_bounds[i + 1]) / 2.0
+            bin_upper_bound.append(val)
         bin_upper_bound.append(float('inf'))  # Append infinity for the last bin upper bound.  
     return bin_upper_bound
 

@@ -4,7 +4,7 @@ from __future__ import print_function
 import os.path as path
 import time
 from functools import partial
-
+from torch.utils.data import TensorDataset, DataLoader
 import sys
 sys.path.append("core")
 sys.path.append("./")
@@ -52,12 +52,6 @@ max_adv_argparse.add_argument('--is_score_round', action='store_true', default=F
 max_adv_argparse.add_argument('--use_cont_pertb', action='store_true', default=False,
                               help='whether use the continuous perturbations for adversarial training.')
 
-def features_postproc_func(x):
-    lz = x < 0
-    gz = x > 0
-    x[lz] = - np.log(1 - x[lz])
-    x[gz] = np.log(1 + x[gz])
-    return x
 
 def gini(C):
     #l1-norm
@@ -69,21 +63,16 @@ def gini(C):
     gi = 1 - 2*s
     return gi
 
-
 def get_coredict(x_train):
     value_spaces = []
     coredict = dict()
     coredict['sparsity_list'] = np.zeros(x_train.shape[1])
     coredict["available_indicies"] = np.zeros(x_train.shape[1])
-    #coredict['ratio'] = np.zeros(x_train.shape[1])
-    #coredict["more"] = dict()
-    #coredict["less"] = dict()
     for i in range(x_train.shape[1]):
         coredict[i] = dict()
         unique_value_counts = bincount(x_train[:,i])#convert into Tensor in case of precision inconsistency
         for v,c in unique_value_counts:
             coredict[i][v] = c
-        #coredict["sparsity_list"][i] = gini(list(coredict[i].values()))
         if len(coredict[i].values())>1:#has more values
             coredict["available_indicies"][i] = 1
     print(f'Available indicies: {sum(coredict["available_indicies"])}')
@@ -112,26 +101,36 @@ def _main(n):
     args = cmd_md.parse_args()
     tag = 2017
     ratio = 8
-    x_train, x_test, y_train, y_test = joblib.load(f"../materials/compressed_{tag}_{ratio}_reallocated_js.pkl")
-    coredict = get_coredict(x_train)
-    transform_as_prob(coredict)
+    #EMBER dataset
+    x_train, x_test, y_train, y_test = joblib.load(f"../materials/compressed_{tag}_{ratio}_js.pkl")
     #x_train,y_train,x_test,y_test = joblib.load(f"../materials/poisoned_x_{n}_data-defense_all_pad.pkl")
     #x_train,y_train,x_test,y_test,s = joblib.load(f"../materials/poisoned_mms.pkl")
-    from torch.utils.data import TensorDataset, DataLoader
-    # 创建一个 TensorDataset
+    x_val = x_test
+
+    # DREBIN dataset
+    #tag = 2015
+    #ratio = 558
+    #x_train, x_val, x_test, y_train, y_val, y_test = joblib.load(f"../materials/drebin_{tag}_{fn}.pkl")
+    #x_train, x_test,y_train,y_test = joblib.load(f"../materials/compressed_drebin_{tag}_{ratio}.pkl")
+    #x_train, x_val, x_test, y_train, y_val, y_test = joblib.load(f"../materials/drebin_2015_682.pkl")
+    #x_train, y_train, x_val, y_val, x_test, y_test = joblib.load(f"../materials/poisoned_x_500_data-defense_{typ}_{n}_pad.pkl")
+    #x_train, y_train, x_val, y_val, x_test, y_test = joblib.load(f"../materials/drebin_selected.pkl")
+    #x_train,x_val,y_train,y_val = train_test_split(x_train,y_train,test_size=0.05,random_state = 3) 
+
+    # PDF dataset
+    ##x_train, x_val, x_test, y_train, y_val, y_test = joblib.load(f"../pdf_dataset.pkl")
+
+    fn = x_train.shape[1]
+    coredict = get_coredict(x_train)
+    transform_as_prob(coredict)
+    
     train_dataset = TensorDataset(torch.Tensor(x_train), torch.Tensor(y_train))
+    val_dataset = TensorDataset(torch.Tensor(x_val), torch.Tensor(y_val))
     test_dataset = TensorDataset(torch.Tensor(x_test), torch.Tensor(y_test))
-    # 创建一个 DataLoader
-    batch_size = 512  # 选择适当的批量大小
+    batch_size = 512  
     train_dataset_producer = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)  # shuffle=True 表示在每个 epoch 中打乱数据
-    val_dataset_producer = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)  # shuffle=True 表示在每个 epoch 中打乱数据
+    val_dataset_producer = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)  # shuffle=True 表示在每个 epoch 中打乱数据
     test_dataset_producer = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)  # shuffle=True 表示在每个 epoch 中打乱数据
-    #dataset = Dataset(feature_ext_args=get_group_args(args, cmd_md, 'feature'))
-    #train_dataset_producer = dataset.get_input_producer(*dataset.train_dataset, batch_size=args.batch_size,
-    #                                                    name='train', use_cache=args.cache)
-    #val_dataset_producer = dataset.get_input_producer(*dataset.validation_dataset, batch_size=args.batch_size,
-    #                                                  name='val')
-    #test_dataset_producer = dataset.get_input_producer(*dataset.test_dataset, batch_size=args.batch_size, name='test')
 
     # test: model training
     if not args.cuda:
@@ -200,8 +199,8 @@ def _main(n):
     else:
         raise NotImplementedError("Expected 'max' and 'stepwise_max'.")
 
-    #max_adv_training_model = AMalwareDetectionPAD_density(model, attack, attack_param)
-    max_adv_training_model = AMalwareDetectionPAD(model, attack, attack_param)
+    #max_adv_training_model = AMalwareDetectionPAD_density(model, attack, attack_param) #use density-boosting
+    max_adv_training_model = AMalwareDetectionPAD(model, attack, attack_param) #no density-boosting
     if args.mode == 'train':
         max_adv_training_model.load()
         max_adv_training_model.fit(train_dataset_producer,
@@ -215,7 +214,7 @@ def _main(n):
                                    lr=args.lr,
                                    under_sampling_ratio=args.under_sampling,
                                    weight_decay=args.weight_decay,
-				   #coredict = False
+				                   #coredict = False #use density-boosting, set it True
                                    )
 
         # get threshold
@@ -233,5 +232,4 @@ def _main(n):
 
 
 if __name__ == '__main__':
-    for n in [3000]:#,300,3000,30000]:
-        _main(n)
+    _main(n)

@@ -1,5 +1,4 @@
 import os
-#import shap
 import torch
 import joblib
 import numpy as np
@@ -10,7 +9,7 @@ from sklearn.svm import LinearSVC
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, f1_score, roc_auc_score
 
-from core import constants, utils
+from core import constants, utils, data_utils
 from core.nn import NN
 from core.ltnn import LTNN
 from core.mmsnn import MMSNN
@@ -143,7 +142,7 @@ def save_model(model_id, model, save_path, file_name):
             file_name=file_name
         )
 
-    elif model_id == 'nn' or model_id == 'ltnn':#including lt and 
+    elif model_id == 'nn' or model_id == 'ltnn':#including lt
         return save_nn(
             model=model,
             save_path=save_path,
@@ -180,6 +179,39 @@ def predict_compressed_data(model, x_test, processor):
         x_t = x_test.copy()
         processor.process(x_t)
     return model.predict(x_t)
+
+def evaluate_aut(model,year='2015'):
+    timelines = np.array(['2014-01','2014-02','2014-03','2014-04','2014-05','2014-06',
+                 '2014-07','2014-08','2014-09','2014-10','2014-11','2014-12',
+                 '2015-01','2015-02','2015-03','2015-04','2015-05','2015-06',
+                 '2015-07','2015-08','2015-09','2015-10','2015-11','2015-12',
+                 '2016-01','2016-02','2016-03','2016-04','2016-05','2016-06',
+                 '2016-07','2016-08','2016-09','2016-10','2016-11','2016-12',
+                 '2017-01','2017-02','2017-03','2017-04','2017-05','2017-06',
+                 '2017-07','2017-08','2017-09','2017-10','2017-11','2017-12',
+                 '2018-01','2018-02','2018-03','2018-04','2018-05','2018-06',
+                 '2018-07','2018-08','2018-09','2018-10','2018-11','2018-12',
+                 '2019-01'])
+    timelines = timelines[timelines>year]
+    f1_list = []
+    goodware_count = []
+    malware_count = []
+    samples_info = pd.read_csv(os.path.join(constants.DREBIN_DATA_DIR,"samples_info.csv"))
+    test_samples = samples_info[((samples_info.vt_detection>=10)|(samples_info.vt_detection==0))&(samples_info.dex_date>year)]
+    for i in range(len(timelines)-1):
+        indicies = (test_samples.dex_date>timelines[i])&(test_samples.dex_date<timelines[i+1])
+        x_t,y_t = x_test[indicies],y_test[indicies]
+        print(timelines[i]+": ")
+        if isinstance(model,LinearSVC):
+            r = model.predict(x_t)
+        else:
+            r = model.predict(x_t)>0.5
+        f1_list.append(f1_score(r,y_t))
+        print(f1_list[-1])
+        goodware_count.append(y_t.shape[0]-y_t.sum())
+        malware_count.append(y_t.sum())
+        print(goodware_count[-1],malware_count[-1])
+    return f1_list, aut_score(f1_list)
 
 def evaluate_model(model, x_test, y_test, target=None):
     """ Print evaluation information of binary classifier
@@ -400,7 +432,7 @@ def get_explanations_nn(model, x_exp, x_back, dataset, knowledge, n_samples=100,
     :param x_exp: (ndarray) data to explain
     :param x_back: (ndarray) data to use as background
     :param dataset: (str) identifier of the dataset
-    :param knowledge: (str) knowledge of dataset; only for indicating files.
+    :param knowledge: (str) knowledge of dataset; only used for indicating files.
     :param n_samples: (int) n_samples parameter for SHAP explainer
     :param load: (bool) if true attempt loading explanations from disk
     :param save: (bool) if true, save the computed shap explanations
@@ -422,7 +454,7 @@ def get_explanations_nn(model, x_exp, x_back, dataset, knowledge, n_samples=100,
 
     if load:
         if os.path.isfile(fpath):
-            print('Explanations file found',fpath)
+            print('Explanations file found:',fpath)
             return pd.read_csv(fpath)
 
     print('Explanations file not found or load = False')
@@ -547,7 +579,7 @@ def train_linearsvm(x_train, y_train):
     # The parameters are taken from
     # https://github.com/srndic/mimicus/blob/master/mimicus/classifiers/RandomForest.py
 
-    model = LinearSVC(C=0.1,dual=True)#, max_iter=10000)
+    model = LinearSVC(verbose=True)#, max_iter=10000)
     model.fit(x_train, y_train)
 
     return model

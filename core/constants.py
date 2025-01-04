@@ -15,11 +15,12 @@ EMBER_DATA_DIR_2018 = 'datasets/ember2018/'
 EMBER_MALWARE_DIR = 'datasets/malware-PE/'
 
 # This is the directory containing the pdf dataset
-PDF_DATA_DIR = 'datasets/pdf/'
-PDF_DATA_CSV = 'data.csv' #An csv of extracted PDFs based on Mimicus
+PDF_DATA_DIR = 'datasets/PDFs/'
+PDF_DATA_CSV = 'mimicus/data.csv' #An csv of extracted PDFs based on Mimicus
 
 # Directory containing Drebin data
-DREBIN_DATA_DIR = 'datasets/drebin/'
+DREBIN_RAW_DIR = "../feature-extractor/results/"
+DREBIN_DATA_DIR = "datasets/drebin/"
 
 # Files for evaluation on SOREL dataset, which are all provided by SOREL
 SOREL_META = "meta.db"
@@ -32,8 +33,14 @@ SAVE_MODEL_DIR = 'models/'
 # Path to directory where to save large files
 SAVE_FILES_DIR = 'materials/'
 
-# This path is used to store temporary files
+# This path is used to store temporary pdf files needed by mimicus featureedit.py
 TEMP_DIR = 'temp/'
+
+# Controls whether some expensive assertions are done or not.
+# When making changes to any logic in this file it can be helpful to turn this
+# on. But when running experiments for real turning this off saves a fair
+# amount of time.
+DO_SANITY_CHECKS = False
 
 VERBOSE = True
 
@@ -137,17 +144,10 @@ infeasible_features_pdf = [
 ]
 
 infeasible_features_drebin = [
-    #'activitylist',
-    #'broadcastreceiverlist',
-    #'contentproviderlist',
-    'hardwarecomponentslist',
-    'intentfilterlist',
-    'requestedpermissionlist',
-    'restrictedapilist',
-    #'servicelist',
-    'suspiciousapilist',
-    'urldomainlist',
-    'usedpermissionslist'
+    'api_permissions',
+    'interesting_calls',#dangerous calls
+    'api_calls',
+    'urls'
 ]
 
 features_to_exclude = {
@@ -158,47 +158,3 @@ features_to_exclude = {
 
 # Criteria for the attack strategies
 sample_selection_criteria = {'p-value','instance'}
-
-# Human readable name mapping
-human_mapping = {
-    'embernn': 'EmberNN',
-    'lightgbm': 'LightGBM',
-    'pdfrf': 'Random Forest',
-    'linearsvm': 'Linear SVM',
-
-    'ember': 'EMBER dataset',
-    'drebin': 'Drebin dataset',
-    'ogcontagio': 'Contagio dataset',
-
-    'non_hashed': 'Non hash',
-    'feasible': 'Controllable',
-    'all': 'All features',
-
-    'shap_nearest_zero_nz': 'SHAP sum ~ 0',
-    'shap_nearest_zero_nz_abs': 'SHAP abs sum ~ 0',
-    'shap_largest_abs': 'LargeAbsSHAP',
-    'most_important': 'Most important',
-    '': '',
-
-    'min_population_new': 'MinPopulation',
-    'argmin_Nv_sum_abs_shap': 'CountAbsSHAP',
-    'combined_shap': 'Greedy Combined Feature and Value Selector',
-    'fixed': 'Fixed Feature and Value Selector',
-    'combined_additive_shap': 'Greedy Combined strategy with additive constraint',
-
-    'exp_name': 'Experiment',
-    'watermarked_gw': 'Poison pool size',
-    'watermarked_mw': 'Number of attacked malware samples',
-    'new_model_mw_test_set_accuracy': 'Accuracy on watermarked malware',
-    'new_model_orig_test_set_accuracy': 'Attacked model accuracy on clean data',
-    'orig_model_wmgw_train_set_accuracy': 'Clean model accuracy on train watermarks',
-    'new_model_new_test_set_fp_rate': 'Attacked model FPs',
-    'orig_model_new_test_set_fp_rate': 'Clean model FPs on backdoored test set',
-    'num_watermark_features': 'Trigger size',
-    'num_gw_to_watermark': 'Poison percentage',
-    'orig_model_orig_test_set_rec_accuracy': 'Baseline accuracy of the original model',
-    'orig_model_new_test_set_rec_accuracy': 'Original model accuracy on attacked test set',
-    'new_model_orig_test_set_rec_accuracy': 'Backdoored model accuracy on clean data',
-    'new_model_new_test_set_rec_accuracy': 'Backdored model accuracy on watermarked data',
-    'orig_model_orig_test_set_accuracy': 'Original model accuracy on selected malicious samples'
-}

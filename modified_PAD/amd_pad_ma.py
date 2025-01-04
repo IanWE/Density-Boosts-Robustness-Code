@@ -21,9 +21,8 @@ from tools import utils
 logger = logging.getLogger('core.defense.max_adv_training')
 logger.addHandler(ErrorHandler)
 
-def fill_density(X,coredict,ratio,probabilities):
-    sparsities = np.where(coredict['available_indicies']!=0)[0]#np.where(probabilities!=0)[0]
-    probabilities = probabilities[sparsities]
+def fill_density(X,coredict,ratio):
+    sparsities = np.where(coredict['available_indicies']!=0)[0]
     l = len(sparsities)
     fn_size = int(ratio * l) if ratio>0 else np.random.randint(int(0.01 * l), int(0.15 * l) + 1)
     feature_indicies = np.random.choice(sparsities, size=fn_size, replace=False)
@@ -56,7 +55,6 @@ class AMalwareDetectionPAD(object):
         self.model_save_path = path.join(config.get('experiments', 'amd_pad_ma') + '_' + self.name,
                                          'model.pth')
         self.model.model_save_path = self.model_save_path
-
 
     def fit(self, train_data_producer, validation_data_producer=None, adv_epochs=50,
             beta_1=0.1,
@@ -209,7 +207,51 @@ class AMalwareDetectionPAD(object):
                 logger.info(
                     f'Training loss (epoch level): {np.mean(losses):.4f} | Train accuracy: {np.mean(accuracies) * 100:.2f}')
 
-            self.save_to_disk(self.model_save_path)
+            self.save_to_disk(self.model_save_path + '.tmp', i + 1, optimizer)
+            # select model
+            self.model.eval()
+            self.attack.is_attacker = True
+            res_val = []
+            avg_acc_val = []
+            for x_val, y_val in validation_data_producer:
+                x_val, y_val = utils.to_tensor(x_val.double(), y_val.long(), self.model.device)
+                logits_f = self.model.forward_f(x_val)
+                acc_val = (logits_f.argmax(1) == y_val).sum().item()
+                acc_val /= x_val.size()[0]
+                avg_acc_val.append(acc_val)
+
+                mal_x_batch, mal_y_batch, null_flag = utils.get_mal_data(x_val, y_val)
+                if null_flag:
+                    continue
+                pertb_mal_x = self.attack.perturb(self.model, mal_x_batch, mal_y_batch,
+                                                  min_lambda_=1e-5,
+                                                  max_lambda_=1e5,
+                                                  **self.attack_param
+                                                  )
+                y_cent_batch, x_density_batch = self.model.inference_batch_wise(pertb_mal_x)
+                if hasattr(self.model, 'indicator'):
+                    indicator_flag = self.model.indicator(x_density_batch)
+                else:
+                    indicator_flag = np.ones([x_density_batch.shape[0], ]).astype(np.bool)
+                y_pred = np.argmax(y_cent_batch, axis=-1)
+                res_val.append((~indicator_flag) | ((y_pred == 1.) & indicator_flag))
+            assert len(res_val) > 0
+            res_val = np.concatenate(res_val)
+            acc_val_adv = np.sum(res_val).astype(np.float) / res_val.shape[0]
+            acc_val = (np.mean(avg_acc_val) + acc_val_adv) / 2.
+            # Owing to we look for a new threshold after each epoch, this hinders the convergence of training.
+            # We save the model's parameters at last several epochs as a well-trained model may be obtained.
+            if acc_val >= best_acc_val:
+                best_acc_val = acc_val
+                acc_val_adv_be = acc_val_adv
+                best_epoch = i + 1
+                self.save_to_disk(self.model_save_path)
+            if verbose:
+                logger.info(
+                    f"\tVal accuracy {acc_val * 100:.4}% with accuracy {acc_val_adv * 100:.4}% under attack.")
+                logger.info(
+                    f"\tModel select at epoch {best_epoch} with validation accuracy {best_acc_val * 100:.4}% and accuracy {acc_val_adv_be * 100:.4}% under attack.")
+            self.attack.is_attacker = False
 
     def load(self):
         assert path.exists(self.model_save_path), 'train model first'
@@ -252,7 +294,6 @@ class AMalwareDetectionPAD_density(object):
                                          'model.pth')
         self.model.model_save_path = self.model_save_path
 
-
     def fit(self, train_data_producer, validation_data_producer=None, adv_epochs=50,
             beta_1=0.1,
             beta_2=1,
@@ -289,9 +330,6 @@ class AMalwareDetectionPAD_density(object):
         lmda_space = np.logspace(np.log10(lmda_lower_bound),
                                  np.log10(lmda_upper_bound),
                                  num=int(np.log10(lmda_upper_bound / lmda_lower_bound)) + 1)
-        if coredict:
-            sparsities = coredict['sparsity_list']
-            probabilities = sparsities/np.sum(sparsities)
         logger.info("Max adversarial training is starting ...")
         best_acc_val = 0.
         acc_val_adv_be = 0.
@@ -302,7 +340,7 @@ class AMalwareDetectionPAD_density(object):
             for idx_batch, (x_batch, y_batch) in enumerate(train_data_producer):
                 x_batch, y_batch = utils.to_tensor(x_batch.double(), y_batch.long(), self.model.device)
                 if coredict:
-                    x_filled = fill_density(x_batch.clone(), coredict, 0, probabilities).cuda()
+                    x_filled = fill_density(x_batch.clone(), coredict, 0).cuda()
                 batch_size = x_batch.shape[0]
                 # make data
                 # 1. add pepper and salt noises for adversary detector
@@ -409,7 +447,51 @@ class AMalwareDetectionPAD_density(object):
                 logger.info(
                     f'Training loss (epoch level): {np.mean(losses):.4f} | Train accuracy: {np.mean(accuracies) * 100:.2f}')
 
-            self.save_to_disk(self.model_save_path)
+            self.save_to_disk(self.model_save_path + '.tmp', i + 1, optimizer)
+            # select model
+            self.model.eval()
+            self.attack.is_attacker = True
+            res_val = []
+            avg_acc_val = []
+            for x_val, y_val in validation_data_producer:
+                x_val, y_val = utils.to_tensor(x_val.double(), y_val.long(), self.model.device)
+                logits_f = self.model.forward_f(x_val)
+                acc_val = (logits_f.argmax(1) == y_val).sum().item()
+                acc_val /= x_val.size()[0]
+                avg_acc_val.append(acc_val)
+
+                mal_x_batch, mal_y_batch, null_flag = utils.get_mal_data(x_val, y_val)
+                if null_flag:
+                    continue
+                pertb_mal_x = self.attack.perturb(self.model, mal_x_batch, mal_y_batch,
+                                                  min_lambda_=1e-5,
+                                                  max_lambda_=1e5,
+                                                  **self.attack_param
+                                                  )
+                y_cent_batch, x_density_batch = self.model.inference_batch_wise(pertb_mal_x)
+                if hasattr(self.model, 'indicator'):
+                    indicator_flag = self.model.indicator(x_density_batch)
+                else:
+                    indicator_flag = np.ones([x_density_batch.shape[0], ]).astype(np.bool)
+                y_pred = np.argmax(y_cent_batch, axis=-1)
+                res_val.append((~indicator_flag) | ((y_pred == 1.) & indicator_flag))
+            assert len(res_val) > 0
+            res_val = np.concatenate(res_val)
+            acc_val_adv = np.sum(res_val).astype(np.float) / res_val.shape[0]
+            acc_val = (np.mean(avg_acc_val) + acc_val_adv) / 2.
+            # Owing to we look for a new threshold after each epoch, this hinders the convergence of training.
+            # We save the model's parameters at last several epochs as a well-trained model may be obtained.
+            if acc_val >= best_acc_val:
+                best_acc_val = acc_val
+                acc_val_adv_be = acc_val_adv
+                best_epoch = i + 1
+                self.save_to_disk(self.model_save_path)
+            if verbose:
+                logger.info(
+                    f"\tVal accuracy {acc_val * 100:.4}% with accuracy {acc_val_adv * 100:.4}% under attack.")
+                logger.info(
+                    f"\tModel select at epoch {best_epoch} with validation accuracy {best_acc_val * 100:.4}% and accuracy {acc_val_adv_be * 100:.4}% under attack.")
+            self.attack.is_attacker = False
 
     def load(self):
         assert path.exists(self.model_save_path), 'train model first'
@@ -427,4 +509,3 @@ class AMalwareDetectionPAD_density(object):
                        save_path)
         else:
             torch.save({'model': self.model.state_dict()}, save_path)
-

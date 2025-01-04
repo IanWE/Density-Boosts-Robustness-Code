@@ -15,9 +15,7 @@ import numpy as np
 import pandas as pd
 import lightgbm as lgb
 from collections import Counter
-
-from sklearn.metrics import confusion_matrix
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import confusion_matrix, accuracy_score
 
 from core import nn
 from core import constants
@@ -31,20 +29,6 @@ import random
 import torch
 from logger import logger
 
-# ########## #
-# ATTACK AUX #
-# ########## #
-def watermark_worker(data_in):
-    processed_dict = {}
-
-    for d in data_in:
-        index, dataset, watermark, feature_names, x, filename = d
-        new_x = watermark_one_sample(dataset, watermark, feature_names, x, filename)
-        processed_dict[index] = new_x
-
-    return processed_dict
-
-
 # ############ #
 # ATTACK SETUP #
 # ############ #
@@ -52,13 +36,13 @@ def get_feature_selectors(fsc, features, target_feats, shap_values_df,
                           importances_df=None, feature_value_map=None):
     """ Get dictionary of feature selectors given the criteria.
 
-    :param fsc: (list) list of feature selection criteria
-    :param features: (dict) dictionary of features
-    :param target_feats: (str) subset of features to target
-    :param shap_values_df: (DataFrame) shap values from original model
-    :param importances_df: (DataFrame) feature importance from original model
-    :param feature_value_map: (dict) mapping of features to values
-    :return: (dict) Feature selector objects
+    :params fsc(list): list of feature selection criteria
+    :params features(dict): dictionary of features
+    :params target_feats(str): subset of features to target
+    :params shap_values_df(DataFrame): shap values from original model
+    :params importances_df(DataFrame): feature importance from original model
+    :params feature_value_map(dict): mapping of features to values
+    :return: Dictionary of feature selector objects
     """
 
     f_selectors = {}
@@ -113,31 +97,6 @@ def get_feature_selectors(fsc, features, target_feats, shap_values_df,
             f_selectors[f] = combined_selector
 
     return f_selectors
-
-def get_poisoning_candidate_samples(original_model, X_test, y_test):
-    X_test = X_test[y_test == 1]
-    print('Poisoning candidate count after filtering on labeled malware: {}'.format(X_test.shape[0]))
-    y = original_model.predict(X_test)
-    if y.ndim > 1:
-        y = y.flatten()
-    correct_ids = y > 0.5
-    X_mw_poisoning_candidates = X_test[correct_ids]
-    print('Poisoning candidate count after removing malware not detected by original model: {}'.format(
-        X_mw_poisoning_candidates.shape[0]))
-    return X_mw_poisoning_candidates, correct_ids
-
-# Utility function to handle row deletion on sparse matrices
-# from https://stackoverflow.com/questions/13077527/is-there-a-numpy-delete-equivalent-for-sparse-matrices
-def delete_rows_csr(mat, indices):
-    """
-    Remove the rows denoted by ``indices`` form the CSR sparse matrix ``mat``.
-    """
-    if not isinstance(mat, scipy.sparse.csr_matrix):
-        raise ValueError("works only for CSR format -- use .tocsr() first")
-    indices = list(indices)
-    mask = np.ones(mat.shape[0], dtype=bool)
-    mask[indices] = False
-    return mat[mask]
 
 # ########### #
 # backdoor strategy#
@@ -263,7 +222,12 @@ def calculate_pvalue(X_train_,y_train_,data_id,model_id='nn',knowledge='train',f
     return np.array(pv_list)
 
 def process_column(values, slc=5): #checked
-    """ Cut the value space into `slc` slices"""
+    """ Cut the value space into `slc` slices
+    @param values: (Numpy.array), value space to be sliced
+    @param slc: (int) value space to be sliced
+
+    return: processed X (Numpy.array) and distinc values (list)
+    """
     x = values.copy()
     keys = sorted(list(set(x)))
     splited_values = [keys[i] for i in range(len(keys)) if i%(len(keys)//slc)==0]
@@ -273,7 +237,12 @@ def process_column(values, slc=5): #checked
     return x,splited_values[:]
 
 def calculate_variation_ratio(X, slc=5):
-    """Get the variation ratio list of all features and its corresponding values based on dataset X"""
+    """Get the variation ratio list of all features and its corresponding values based on dataset X
+    @param X: (numpy.ndarray) The input dataset
+    @param slc: (int) The slice number used in the calculation (default is 5)
+
+    return: (list) A list of variation ratios and (list) A list of corresponding values
+    """
     vrs = []
     c_values = []
     for j in range(X.shape[1]):
@@ -326,6 +295,8 @@ def find_samples(ss,pv_list,x_atk,y_atk,low,up,number,seed):
     @param up: up bound of p-value for selecting poisons
     @param number: sample number
     @param seed: random seed
+
+    return: (list) indicies to candidates examples
     """
     random.seed(seed)
     if ss == 'instance':
@@ -356,6 +327,8 @@ def evaluate_backdoor(X, y, fv, net, model_id, thresh=0.5, device=None, processo
     :params fv(np.array): a list of tuple(trigger index, value)
     :params threshold(float): the threshold for fixed false positive.
     :params device(string): run it on cuda or cpu
+
+    return: (float) clean accuracy, (float) false positives, (float) backdoor ASR
     """
     acc_clean, n = 0.0, 0
     with torch.no_grad():
@@ -405,6 +378,8 @@ def run_experiments(settings,x_train,y_train,x_atk,y_atk,x_test,y_test,data_id,m
     :params dataset(string): type of the dataset
     :params model_id(string): type of the target model
     :params file_name(string): name of the saved model
+
+    return: (List) result list
     """
     i,ts,ss,ps,ws,triggers,pv_list,pv_range,current_exp_name = settings
     summaries = [ts,ss,ps,ws,i]
@@ -456,4 +431,88 @@ def run_experiments(settings,x_train,y_train,x_atk,y_atk,x_test,y_test,data_id,m
     return summaries
 
 
+def mimicry(model, x, ben_x, manipulation_x, processor, trials=10, seed=0, is_apk=False, oblivion=False, detector=False):#
+    """
+    modify feature vectors of malicious apps (implementation from PAD-SMA)
+
+    Parameters
+    -----------
+    @param model, a victim model
+    @param x: torch.FloatTensor, feature vectors with shape [batch_size, vocab_dim]
+    @param ben_x: torch.FloatTensor, feature vectors with shape [batch_size, vocab_dim]
+    @param manipulation_x: 1D np.Array or torch.IntTensor in {0,1}, 0 indicates a non-removable feature, 1 means removable.
+    @param trials: Integer, repetition times
+    @param seed: Integer, random seed
+    @param is_apk: Boolean, whether produce apks
+    @param oblivion: Boolean, whether the attacker is oblivious to the detector of PAD.
+    @param detectors: Object or False, PAD detector if it is a PAD model.
+
+    return: (list) boolean list of success flag, (np.array) modified samples
+    """
+    assert trials > 0
+    if x is None or x.shape[0] <= 0:
+        return []
+    if ben_x.shape[0] <= 0:
+        return x
+    trials = trials if trials < ben_x.shape[0] else ben_x.shape[0]
+    success_flag = np.array([])
+    with torch.no_grad():
+        torch.manual_seed(seed)
+        x_mod_list = []
+        for i in range(x.shape[0]):
+            _x = x[i]
+            if hasattr(_x, 'todense'):
+                _x = np.array(_x.todense())[0]
+            indices = torch.randperm(ben_x.shape[0])[:trials]
+            if hasattr(ben_x, 'todense'):
+                trial_vectors = np.array(ben_x[indices].todense())
+            else:
+                trial_vectors = ben_x[indices]
+            _x_fixed_one = ((1. - manipulation_x).float() * _x)[None, :]#keep non-removable features
+            modified_x = torch.clamp(_x_fixed_one + trial_vectors, min=0., max=1.)
+            if processor:
+                modified_x = processor.process(modified_x)
+                _x = processor.process(_x.reshape(1,-1))
+            if not hasattr(model, 'C'):
+                modified_x, y = modified_x.float(), torch.ones(trials,).long()
+            else:
+                modified_x, y = modified_x.numpy(), np.ones(trials)
+                #return modified_x,y
+            if hasattr(model, 'indicator'):# and (not oblivion)
+                y_cent, x_density = model.inference_batch_wise(modified_x)
+                y_pred = np.argmax(y_cent, axis=-1)
+            else:
+                y_pred = model.predict(modified_x)>0.5    
+                if detector:
+                    y_cent, x_density = detector.inference_batch_wise(modified_x)
+            if hasattr(model, 'indicator') and (not oblivion):
+                attack_flag = (y_pred == 0) & (model.indicator(x_density, y_pred))
+            elif detector and (not oblivion):
+                attack_flag = (y_pred == 0) & (detector.indicator(x_density, y_pred))
+            else:
+                attack_flag = (y_pred == 0)# [True,False,...], flag are used to demote whether attack is successful.
+            ben_id_sel = np.argmax(attack_flag) #get idex where flag is the max, if it is success, 
+            #print(ben_id_sel,y_pred) 1, [True,False,...]
+            # check the attack effectiveness
+            if 'indicator' in type(model).__dict__.keys():
+                use_flag = (y_pred == 0) & (model.indicator(x_density, y_pred))
+                #print((y_pred == 0),(model.indicator(x_density, y_pred)))
+            elif detector:
+                use_flag = (y_pred == 0) & (detector.indicator(x_density, y_pred))
+                #print((y_pred == 0),detector.indicator(x_density, y_pred) )
+            else:
+                use_flag = attack_flag
+            if not use_flag[ben_id_sel]: #if use_flag is zero, append a False
+                success_flag = np.append(success_flag, [False])
+            else:
+                success_flag = np.append(success_flag, [True])
+            if not hasattr(model, 'C'):
+                x_mod = (modified_x[ben_id_sel] - _x).detach().cpu().numpy()
+            else:
+                x_mod = modified_x[ben_id_sel] - _x
+            x_mod_list.append(x_mod)
+        if is_apk:
+            return success_flag, np.vstack(x_mod_list)
+        else:
+            return success_flag, None
 
