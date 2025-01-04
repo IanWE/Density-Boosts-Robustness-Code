@@ -87,14 +87,7 @@ $ python -m examples.amd_pad_ma_test --cuda --use_cont_pertb --beta_1 0.1 --beta
 |    |    amd_pad_ma_test.py: This is the script of training PAD models, you may need to have your own modification, such as replacing the dataset with clean or poisoned dataset and training strategies(with or without density boosting). Replace `pad4amd/example/amd_pad_ma_test.py` with this file. 
 ```
 
-
 ## Contact
 If you encounter any problems when using the code in this repository, please feel free to contact me (jianwentian1994@foxmail.com) or raise an issue. 
-
-
-
-
-
-
 
       
