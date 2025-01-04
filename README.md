@@ -33,19 +33,33 @@ to launch the training and use the model to do the later verification. The key p
 
 ## Evaluation on DREBIN (Android)
 Here descripte the steps of evaluation on DREBIN datasets. 
-1. saaaa
-2. aaaaa
-3. aaaaa
-4. aaaaa
-5. aaaaa
+1. Similarly, prepare the processed datasets by running
+```sh
+$ python process_data_drebin.py # dataset for training NN-Bundle (DREBIN)
+```
+2. Training the model and evaluate the performance and mimicry attacks by using `Experiments-DREBIN.ipynb` which includes most DREBIN-related experiments.
+3. After you train the base models, you can refer to `train_backdoored_drebin.py` for backdoor evaluation on DREBIN.
+4. Also, please base on original codes to train the PAD model, you can refer to our files in `modified_PAD/` (mainly see `base_attack.py` and `amd_pad_map.py`) for modification. After that, run 
+```sh
+$ python -m examples.amd_pad_ma_test --cuda --use_cont_pertb --beta_1 0.1 --beta_2 1.0 --lambda_lb 1.0 --lambda_ub 1.0 --seed 0 --batch_size 128 --proc_number 10 --epochs 50 --max_vocab_size 10000 --dense_hidden_units "1024,512,256" --weight_decay 0.0 --lr 0.001 --dropout 0.6  --ma "stepwise_max" --steps_l1 50 --steps_linf 50 --step_length_linf 0.02 --steps_l2 50 --step_length_l2 0.5 --is_score_round
+```
 
 ## Evaluation on Contagio (PDF)
 Here descripte the steps of evaluation on Contagio datasets. 
-1. saaaa
-2. aaaaa
+1. Prepare the processed datasets by running
+```sh
+$ python process_data.py # Set the dataset as Contagio first (Extracted as dumped numpy)
+$ python process_data_histogram.py # Please set the dataset as Contagio first(Extracted as dumped numpy)
+$ python process_data_bundle.py # Please set the dataset as Contagio first (Extracted as dumped numpy)
+```
+2. Training the model and evaluate the performance and mimicry attacks by using `Experiments-pdf.ipynb` which includes most PDF-related experiments.
+3. After you train the base models, you can refer to `train_backdoored_pdf.py` for backdoor evaluation on DREBIN.
 3. aaaaa
 4. aaaaa
-5. aaaaa
+5. 
+```sh
+$ python -m examples.amd_pad_ma_test --cuda --use_cont_pertb --beta_1 0.1 --beta_2 1.0 --lambda_lb 1.0 --lambda_ub 1.0 --seed 0 --batch_size 128 --proc_number 10 --epochs 50 --max_vocab_size 10000 --dense_hidden_units "1024,512,256" --weight_decay 0.0 --lr 0.001 --dropout 0.6  --ma "stepwise_max" --steps_l1 50 --steps_linf 50 --step_length_linf 0.02 --steps_l2 50 --step_length_l2 0.5 --is_score_round
+```
 
 
 
@@ -53,23 +67,23 @@ Here descripte the steps of evaluation on Contagio datasets.
 ```
 |+---app.py: This file help wrap all models into api for remote access (e.g. from docker).
 |+---core/ is the directory of main codes.  
-|    |+---model_utils.py: This module is for model usages, e.g. loading, training, saving, evaluating models, explanation (SHAP).  
-|    |+---data_utils.py: This module is for processing dataset, e.g. loading/saving dataset, loading/saving/processing features.   
-|    |+---constants.py: This module is used to set some constant values, like configuration.  
-|    |+---feature_selectors.py: This module is used to implement backdoor attacks.  
-|    |+---models.py: This module contains code for training/loading specific models (for easy usages).  
-|    |+---nn.py;mmsnn.py;ltnn.py;malconv.py`: Definition for different models.  
-|    |+---utils.py: This module is for different tools/algorithms/implementations. 
+|    |     model_utils.py: This module is for model usages, e.g. loading, training, saving, evaluating models, explanation (SHAP).  
+|    |     data_utils.py: This module is for processing dataset, e.g. loading/saving dataset, loading/saving/processing features.   
+|    |     constants.py: This module is used to set some constant values, like configuration.  
+|    |     feature_selectors.py: This module is used to implement backdoor attacks.  
+|    |     models.py: This module contains code for training/loading specific models (for easy usages).  
+|    |     nn.py;mmsnn.py;ltnn.py;malconv.py`: Definition for different models.  
+|    |     utils.py: This module is for different tools/algorithms/implementations. 
 |+---materials/ contains all saved files and results.  
 |+---datasets/ is the directory of datasets. 
 |+---pad/ is the directory of PAD code, we modified it for simplifying usage of the API. Please refer to [its original version](https://github.com/deqangss/pad4amd) for training models. 
 |+---modified_MAB/ contains the modified code for MAB; you can put these code files to the original MAB directory.  
 |+---modified_PAD/ contains the modified code for PAD; you can put these code files to the original PAD directory.
-|    |+---base_attack.py: We changed its manipultable features for ember (Having some additional-only features or unmodifiable features is critical for the defensive effect of PAD models, the PAD can build a strong convex outer bound with these features. ).  Use this file to replace `core/attack/base_attack.py`.  
-|    |+---base_attack_drebin.py: Ditto, but this is for DREBIN dataset. When you wanna train a DREBIN-NN, use this file to replace `core/attack/base_attack.py`.   
-|    |+---amd_icnn.py: When we ran the PAD code, we met an small problem; replace `core/defense/amd_icnn.py` with this file can eliminate the error.  
-|    |+---amd_pad_ma.py: We added our density boosting strategy in this file; if you wanna train the model with SCBNN-DB-PAD, you might need this file. Refer to "class AMalwareDetectionPAD_density" for the modification. Replace `core/defense/amd_pad_ma.py` with this file to use it.  
-|    |+---amd_pad_ma_test.py: This is the script of training PAD models, you may need to have your own modification, such as replacing the dataset with clean or poisoned dataset and training strategies(with or without density boosting). Replace `example/amd_pad_ma_test.py` with this file. 
+|    |    base_attack.py: We changed its manipultable features for ember (Having some additional-only features or unmodifiable features is critical for the defensive effect of PAD models, the PAD can build a strong convex outer bound with these features. ).  Use this file to replace `core/attack/base_attack.py`.  
+|    |    base_attack_drebin.py: Ditto, but this is for DREBIN dataset. When you wanna train a DREBIN-NN, use this file to replace `core/attack/base_attack.py`.   
+|    |    amd_icnn.py: When we ran the PAD code, we met an small problem; replace `core/defense/amd_icnn.py` with this file can eliminate the error.  
+|    |    amd_pad_ma.py: We added our density boosting strategy in this file; if you wanna train the model with SCBNN-DB-PAD, you might need this file. Refer to "class AMalwareDetectionPAD_density" for the modification. Replace `core/defense/amd_pad_ma.py` with this file to use it.  
+|    |    amd_pad_ma_test.py: This is the script of training PAD models, you may need to have your own modification, such as replacing the dataset with clean or poisoned dataset and training strategies(with or without density boosting). Replace `example/amd_pad_ma_test.py` with this file. 
 ```
 
 
