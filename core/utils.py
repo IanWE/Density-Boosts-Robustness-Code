@@ -292,7 +292,7 @@ def train(X_train, y_train, x_test, y_test, batch_size, net, loss, optimizer, de
             torch.save(net.state_dict(), os.path.join('tmp/', temp_filename + '.pkl')) 
             continue
         #calculate val loss
-        y_pred = predict(net, X, device=None, batch=64, args=[])
+        y_pred = predict(net, x_test, device=None, batch=64, args=[])
         net.train()
         f1 = f1_score(y_test,y_pred[:,1]>0.5)
         if f1 >= best_f1:
