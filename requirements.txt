@@ -67,14 +67,14 @@ jupyter-client
 jupyter-console
 jupyter-telemetry==0.1.0
 jupyter_core==5.3.1
-jupyterhub==4.0.2
+jupyterhub>=4.1.6
 jupyterlab-pygments
 jupyterlab-widgets==3.0.9
 keras==2.13.1
 kiwisolver
 liac-arff==2.5.0
 libclang==16.0.6
-lief==0.10.0
+lief>=0.15.0
 lightgbm==4.1.0
 lit==16.0.6
 llvmlite==0.41.1
@@ -121,7 +121,7 @@ parso
 pbr==6.0.0
 pexpect
 pickleshare
-Pillow==10.0.0
+Pillow>=10.3.0
 pkgutil_resolve_name
 platformdirs==3.10.0
 ply==3.11
@@ -146,7 +146,7 @@ python-dateutil==2.8.2
 python-json-logger==2.0.7
 python-magic==0.4.27
 pytz
-PyYAML==4.2b1
+PyYAML>=5.4
 pyzmq
 qtconsole==4.6.0
 requests==2.31.0
@@ -181,7 +181,7 @@ testresources==2.0.1
 threadpoolctl==3.2.0
 tinycss2==1.2.1
 toml 
-torch==2.0.1
+torch>=2.2.0
 torchvision==0.15.2
 tornado 
 tqdm==4.66.1
