@@ -75,7 +75,7 @@ kiwisolver
 liac-arff==2.5.0
 libclang==16.0.6
 lief>=0.15.0
-lightgbm==4.1.0
+lightgbm==4.6.0
 lit==16.0.6
 llvmlite==0.41.1
 lmdb==1.4.1
