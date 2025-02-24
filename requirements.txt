@@ -193,7 +193,7 @@ ujson==5.10.0
 urllib3==1.24.3
 wcwidth 
 webencodings==0.5.1
-Werkzeug==3.0.1
+Werkzeug==3.0.6
 widgetsnbextension 
 wrapt==1.16.0
 xmltodict==0.13.0
