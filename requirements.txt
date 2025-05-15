@@ -8,7 +8,6 @@ asttokens
 astunparse==1.6.3
 async-generator==1.10
 attrs 
-azoo==1.3.1
 backcall
 beautifulsoup4==4.12.2
 bleach
@@ -21,7 +20,7 @@ certipy==0.1.3
 cffi
 chardet==3.0.4
 charset-normalizer
-click==8.1.7
+click
 cloudpickle==3.0.0
 cmake==3.27.4.1
 colorama==0.4.6
@@ -31,7 +30,6 @@ cycler
 deap==1.4.1
 decorator
 defusedxml
-ember==0.1.0
 entrypoints
 executing
 fastjsonschema==2.18.0
@@ -51,7 +49,6 @@ h5py==3.10.0
 idna==2.7
 importlib-metadata==6.8.0
 importlib-resources
-install==1.3.5
 ipykernel
 ipython
 ipython-genutils
@@ -98,7 +95,7 @@ nbformat==5.9.2
 networkx==3.1
 notebook
 numba==0.58.1
-numpy==1.24.3
+numpy
 nvidia-cublas-cu11==11.10.3.66
 nvidia-cuda-cupti-cu11==11.7.101
 nvidia-cuda-nvrtc-cu11==11.7.99
@@ -142,14 +139,13 @@ pyOpenSSL==23.2.0
 pyparsing 
 PyQt5-sip==12.11.0
 pyrsistent 
-python-dateutil==2.8.2
+python-dateutil
 python-json-logger==2.0.7
 python-magic==0.4.27
 pytz
-PyYAML>=5.4
+PyYAML==4.2b1
 pyzmq
 qtconsole==4.6.0
-requests==2.31.0
 requests-oauthlib==1.3.1
 rsa==4.9
 rtdl_revisiting_models==0.0.2
