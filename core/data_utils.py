@@ -241,20 +241,20 @@ def load_dataset(dataset='ember', selected=True, processor=None, year=2015):
     return x_train, y_train, x_test, y_test
 
 class Processor(object):
-    def __init__(self,up,lp,valueset_list,rules,c_valueset_list,threshold,new=False,bundle_rule=[]):
+    def __init__(self,up,lp,valueset_list,rules,c_valueset_list,binarization=False,bundle_rule=[]):
         self.up = up
         self.lp = lp
-        self.threshold = threshold
+        #self.threshold = threshold
         self.valueset_list = valueset_list
         self.rules = rules
         self.c_valueset_list = c_valueset_list
-        self.new = new
+        self.binarization = binarization
         self.bundle_rule = bundle_rule
 
     def process(self,x):
         for i in range(x.shape[1]):
             x_i = x[:,i]
-            if self.lp[i]==self.up[i] and self.new:
+            if self.lp[i]==self.up[i] and self.binarization:
                 indices = self.lp[i]==x_i
                 x_i[indices] = 0
                 x_i[~indices] = 1
@@ -345,12 +345,12 @@ def load_compressed_pdf(tag='pdf', ratio=8, binarization='bundle'):
         x_train, x_test, y_train, y_test = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"compressed_{tag}_{ratio}_reallocated.pkl"))
         up,lp,valueset_list = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"materials_{tag}.pkl"))
         rules,c_valueset_list,bundle_rule = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"compressed_{tag}_{ratio}_material.pkl"))
-        processor = Processor(up,lp,valueset_list,rules,c_valueset_list,ratio,binarization,bundle_rule)
+        processor = Processor(up,lp,valueset_list,rules,c_valueset_list,binarization,bundle_rule)
     elif binarization == False:
         x_train, x_test, y_train, y_test = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"compressed_{tag}_{ratio}_reallocated_sc.pkl"))
         up,lp,valueset_list = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"materials_{tag}_sc.pkl"))
         rules,c_valueset_list = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"compressed_{tag}_{ratio}_material_sc.pkl"))
-        processor = Processor(up,lp,valueset_list,rules,c_valueset_list,ratio,binarization,[])
+        processor = Processor(up,lp,valueset_list,rules,c_valueset_list,binarization,[])
     elif binarization == 'histogram':
         x_train, x_test, y_train, y_test = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"compressed_{tag}_{ratio}_histogram.pkl"))
         c_valueset_list = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"compressed_{tag}_{ratio}_material_histogram.pkl"))
@@ -367,17 +367,17 @@ def load_compressed_ember(tag, ratio=8, binarization=False):
         x_train, x_test, y_train, y_test = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"compressed_{tag}_{ratio}_reallocated.pkl"))
         up,lp,valueset_list = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"materials_{tag}.pkl"))
         rules,c_valueset_list = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"compressed_{tag}_{ratio}_material.pkl"))
-        processor = Processor(up,lp,valueset_list,rules,c_valueset_list,ratio,binarization)
+        processor = Processor(up,lp,valueset_list,rules,c_valueset_list,binarization)
     elif binarization == True:
         x_train, x_test, y_train, y_test = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"compressed_{tag}_{ratio}_reallocated_js.pkl"))
         up,lp,valueset_list = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"materials_{tag}_js.pkl"))
         rules,c_valueset_list = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"compressed_{tag}_{ratio}_material_js.pkl"))
-        processor = Processor(up,lp,valueset_list,rules,c_valueset_list,ratio,binarization)
+        processor = Processor(up,lp,valueset_list,rules,c_valueset_list,binarization)
     elif binarization == 'bundle':
         x_train, x_test, y_train, y_test = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"compressed_{tag}_{ratio}_reallocated_js.pkl"))
         up,lp,valueset_list = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"materials_{tag}_js.pkl"))
         rules,c_valueset_list,bundle_rule = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"compressed_{tag}_{ratio}_material_js.pkl"))
-        processor = Processor(up,lp,valueset_list,rules,c_valueset_list,ratio,binarization,bundle_rule)
+        processor = Processor(up,lp,valueset_list,rules,c_valueset_list,binarization,bundle_rule)
     elif binarization == 'histogram':
         x_train, x_test, y_train, y_test = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"compressed_{tag}_{ratio}_histogram.pkl"))
         c_valueset_list = joblib.load(os.path.join(constants.SAVE_FILES_DIR,f"compressed_{tag}_{ratio}_material_histogram.pkl"))
